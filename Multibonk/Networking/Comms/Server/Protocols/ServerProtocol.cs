@@ -40,7 +40,7 @@ namespace Multibonk.Networking.Comms.Server.Protocols
 
         public void HandleClose(Connection connection)
         {
-            OnClientConnected?.Invoke(connection);
+            OnClientDisconnected?.Invoke(connection);
         }
 
         public void HandleConnect(Connection connection)
