@@ -26,7 +26,10 @@ namespace Multibonk.Networking.Comms.Server.Handlers
         {
             var packet = new PlayerMovePacket(msg);
 
-            var playerId = _lobbyContext.GetPlayer(conn).UUID;
+            var player = _lobbyContext.GetPlayer(conn);
+            if (player == null) return;
+
+            var playerId = player.UUID;
 
             GameDispatcher.Enqueue(() =>
             {

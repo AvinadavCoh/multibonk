@@ -20,18 +20,12 @@ namespace Multibonk.Networking.Comms.Server.Handlers
             var packet = new SelectCharacterPacket(msg);
 
             var targetPlayer = LobbyContext.GetPlayer(conn);
+            if (targetPlayer == null) return;
 
-            if (targetPlayer != null) 
-            {
-
-                targetPlayer.SelectedCharacter = packet.CharacterName;
-            }
-
-
+            targetPlayer.SelectedCharacter = packet.CharacterName;
 
             var currentPlayers = LobbyContext.GetPlayers();
             var characterSelection = new SendPlayerSelectedCharacterPacket(targetPlayer.UUID, packet.CharacterName);
-
 
             foreach (var player in currentPlayers)
             {
