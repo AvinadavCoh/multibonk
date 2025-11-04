@@ -1,0 +1,145 @@
+==============================================
+  MEGABONK MULTIPLAYER MOD - Installation
+==============================================
+
+VERSION: Development Build (XP Sync Working!)
+DATE: November 4, 2025
+
+==============================================
+REQUIREMENTS:
+==============================================
+1. Megabonk game (Steam version)
+2. MelonLoader v0.7.1 Open-Beta installed
+
+==============================================
+STEP 1: INSTALL MELONLOADER
+==============================================
+If you don't have MelonLoader installed:
+
+1. Go to: https://melonwiki.xyz/#/README
+2. Download MelonLoader v0.7.1 Open-Beta
+3. Run the MelonLoader installer
+4. Select your Megabonk game folder
+   (Usually: C:\Program Files (x86)\Steam\steamapps\common\Megabonk)
+5. Click "Install"
+
+==============================================
+STEP 2: INSTALL THE MOD
+==============================================
+1. Locate your Megabonk game folder:
+   Right-click Megabonk in Steam -> Manage -> Browse Local Files
+
+2. Open the "Mods" folder
+   (If it doesn't exist, run the game once with MelonLoader installed)
+
+3. Copy ALL files from this release folder into the "Mods" folder:
+   - Multibonk.dll
+   - Microsoft.Extensions.DependencyInjection.dll
+   - Microsoft.Extensions.DependencyInjection.Abstractions.dll
+
+4. Launch the game!
+
+==============================================
+STEP 3: CONNECT TO MULTIPLAYER
+==============================================
+IN MAIN MENU:
+
+Press F5 to open the connection menu
+
+TO HOST (Player 1):
+1. Enter your player name
+2. Click "Start Server"
+3. Share your IP address with friends
+
+TO JOIN (Player 2):
+1. Enter your player name
+2. Enter host's IP address:
+   - Same PC: 127.0.0.1
+   - Local network: Host's local IP (e.g., 192.168.1.100)
+3. Click "Connect"
+
+PORT USED: 25565 (automatic)
+
+==============================================
+FEATURES WORKING:
+==============================================
+✅ Player synchronization
+✅ Map synchronization
+✅ Character selection sync
+✅ Movement & rotation sync
+✅ XP gain synchronization (NEW!)
+✅ Level up synchronization (NEW!)
+
+🚧 IN PROGRESS:
+- Item drops synchronization
+- Enemy health synchronization
+- Chest synchronization
+- Minimap sync
+
+==============================================
+TROUBLESHOOTING:
+==============================================
+Q: Game doesn't start?
+A: Make sure MelonLoader is installed correctly
+
+Q: Mod doesn't load?
+A: Check that all 3 DLL files are in the Mods folder
+
+Q: Can't connect to friend?
+A: Make sure you're using the correct IP address
+   Try disabling firewall temporarily
+   Ensure port 25565 is not blocked
+
+Q: Leaderboards disabled?
+A: This is normal - remove the mod to re-enable leaderboards
+   The mod doesn't permanently ban you!
+
+==============================================
+UNINSTALLING:
+==============================================
+To play vanilla Megabonk:
+1. Go to the Mods folder
+2. Delete or rename Multibonk.dll
+3. Launch the game
+
+To reinstall:
+- Copy Multibonk.dll back to the Mods folder
+
+==============================================
+DEBUG COMMANDS (FOR TESTING):
+==============================================
+Press these keys IN-GAME to test features:
+
+F5  - Toggle connection menu
+F6  - Simulate +50 XP gain
+F7  - Simulate level up
+F8  - Show network status
+F9  - Simulate item drop
+F10 - Simulate boss damage
+F11 - Simulate enemy death
+
+==============================================
+INTERNET PLAY:
+==============================================
+For playing over the internet (not LAN):
+
+Option 1: Use Hamachi/Radmin VPN
+- Install VPN software on both computers
+- Connect to same VPN network
+- Use VPN IP to connect
+
+Option 2: Port Forwarding
+- Host opens port 25565 on router
+- Host shares public IP address
+- Client connects using public IP
+
+==============================================
+SUPPORT:
+==============================================
+GitHub: https://github.com/guilhermeljs/multibonk
+
+Report issues or contribute improvements!
+
+==============================================
+Have fun playing multiplayer Megabonk! 🎮
+==============================================

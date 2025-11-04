@@ -29,17 +29,23 @@ namespace Multibonk
 
         public override void OnUpdate()
         {
-            executor.Update();
+            if (executor != null)
+                executor.Update();
+
+            // Debug commands for testing
+            Game.DebugCommands.CheckInput();
         }
 
         public override void OnFixedUpdate()
         {
-            executor.FixedUpdate();
+            if (executor != null)
+                executor.FixedUpdate();
         }
 
         public override void OnLateUpdate()
         {
-            executor.LateUpdate();
+            if (executor != null)
+                executor.LateUpdate();
         }
 
 
@@ -52,6 +58,9 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, PlayerMovementEventHandler>();
             services.AddSingleton<IGameEventHandler, StartGameEventHandler>();
             services.AddSingleton<IGameEventHandler, UpdateNetworkPlayerAnimationsEventHandler>();
+            services.AddSingleton<IGameEventHandler, PlayerXpEventHandler>();
+            services.AddSingleton<IGameEventHandler, ItemDropEventHandler>();
+            services.AddSingleton<IGameEventHandler, EnemySyncEventHandler>();
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
 
             services.AddSingleton<EventHandlerExecutor>();
@@ -68,6 +77,12 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, StartGamePacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerMovedPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerRotatedPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, PlayerXpGainedPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, PlayerLevelUpPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, ItemDroppedPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, ItemPickedUpPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, EnemyDeathPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, EnemyHealthUpdatePacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();

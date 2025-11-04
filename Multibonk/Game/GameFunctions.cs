@@ -40,11 +40,41 @@ namespace Multibonk.Game
         /// <param name="rotation">Spawn rotation</param>
         public static void SpawnNetworkPlayer(ushort playerId, ECharacter character, Vector3 position, Quaternion rotation)
         {
+            DebugLogger.LogSpawn($"Starting spawn for player {playerId}, character: {character}");
+
+            // Check if character data is initialized
+            if (!GamePatchFlags.CharacterDataInitialized || GamePatchFlags.CharacterData == null || GamePatchFlags.CharacterData.Count == 0)
+            {
+                DebugLogger.Error("Character data not initialized! Attempting to initialize...");
+                GetCharacterDataFromMainMenu();
+            }
+
             var data = GamePatchFlags.CharacterData.Find(data => data.eCharacter == character);
+            if (data == null)
+            {
+                DebugLogger.Error($"Could not find character data for {character}!");
+                return;
+            }
+
+            DebugLogger.LogSpawn($"Found character data for {character}");
+
+            // Check if player already exists
+            if (GamePatchFlags.PlayersCache.ContainsKey(playerId))
+            {
+                DebugLogger.Warning($"Player {playerId} already exists! Removing old instance...");
+                var oldPlayer = GamePatchFlags.PlayersCache[playerId];
+                if (oldPlayer != null && oldPlayer.PlayerObject != null)
+                {
+                    UnityEngine.Object.Destroy(oldPlayer.PlayerObject);
+                }
+                GamePatchFlags.PlayersCache.Remove(playerId);
+            }
 
             var player = new GameObject("player-from-id-" + playerId.ToString());
             player.transform.position = position;
             player.transform.rotation = rotation;
+
+            DebugLogger.LogSpawn($"Created GameObject at position ({position.x}, {position.y}, {position.z})");
 
             var rendererContainer = new GameObject("NetworkPlayer");
             rendererContainer.transform.SetParent(player.transform);
@@ -59,6 +89,8 @@ namespace Multibonk.Game
             rendererContainer.transform.localRotation = Quaternion.identity;
 
             GamePatchFlags.PlayersCache.Add(playerId, new SpawnedNetworkPlayer(player));
+
+            DebugLogger.LogSpawn($"Successfully spawned player {playerId}! Total players cached: {GamePatchFlags.PlayersCache.Count}");
         }
     }
 

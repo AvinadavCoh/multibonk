@@ -17,9 +17,14 @@ namespace Multibonk.Networking.Comms.Client.Handlers
         {
             var packet = new SpawnPlayerPacket(msg);
 
+            DebugLogger.LogSpawn($"Received spawn packet for player {packet.PlayerId}, character: {packet.Character}");
+
             GameDispatcher.Enqueue(() =>
-            {   
+            {
+                var pos = packet.Position;
+                DebugLogger.LogSpawn($"Spawning network player {packet.PlayerId} at position ({pos.x}, {pos.y}, {pos.z})");
                 GameFunctions.SpawnNetworkPlayer(packet.PlayerId, packet.Character, packet.Position, packet.Rotation);
+                DebugLogger.LogSpawn($"Successfully spawned network player {packet.PlayerId}");
             });
         }
     }

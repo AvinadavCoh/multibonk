@@ -1,5 +1,6 @@
 ﻿using Il2Cpp;
 using Multibonk.Networking.Comms.Base;
+using UnityEngine;
 
 namespace Multibonk.Networking.Lobby
 {
@@ -17,6 +18,8 @@ namespace Multibonk.Networking.Lobby
         public string Name { get; private set; }
         public string SelectedCharacter { get; set; }
         public int Ping { get; set; }
+        public Vector3 SpawnPosition { get; set; }
+        public Quaternion SpawnRotation { get; set; }
 
         public LobbyPlayer(
             string name = "Unknown",

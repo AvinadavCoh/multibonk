@@ -12,6 +12,12 @@
 
        PLAYER_MOVED_PACKET = 7,
        PLAYER_ROTATED_PACKET = 8,
+       PLAYER_XP_GAINED_PACKET = 9,
+       PLAYER_LEVEL_UP_PACKET = 10,
+       ITEM_DROPPED_PACKET = 11,
+       ITEM_PICKED_UP_PACKET = 12,
+       ENEMY_DEATH_PACKET = 13,
+       ENEMY_HEALTH_UPDATE_PACKET = 14,
     }
 
     public enum ClientSentPacketId : byte

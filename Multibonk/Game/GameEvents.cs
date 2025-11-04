@@ -20,17 +20,19 @@ namespace Multibonk.Game
         public static event Action BossDamagedEvent;
 
         public static event Action EnemySpawnEvent;
-        public static event Action EnemyDieEvent;
+        public static event Action<string> EnemyDieEvent; // enemyId
+        public static event Action<string, float, float> EnemyHealthChangedEvent; // enemyId, currentHealth, maxHealth
 
         public static event Action InGamePauseEvent;
         public static event Action InGameUnpauseEvent;
 
         public static event Action UseShrineEvent;
 
-        public static event Action SpawnDropEvent;
-        public static event Action OpenChestEvent;
+        public static event Action<string, Vector3, int> SpawnDropEvent; // itemId, position, itemType
+        public static event Action<string> OpenChestEvent; // chestId
 
-        public static event Action PlayerLevelUpEvent;
+        public static event Action<int> PlayerLevelUpEvent; // newLevel
+        public static event Action<int> PlayerXpGainedEvent; // xpAmount
 
 
         public static void TriggerConfirmMap()
@@ -60,6 +62,36 @@ namespace Multibonk.Game
         public static void TriggerPlayerRotated(Quaternion newRotation)
         {
             PlayerRotateEvent?.Invoke(newRotation);
+        }
+
+        public static void TriggerPlayerLevelUp(int newLevel)
+        {
+            PlayerLevelUpEvent?.Invoke(newLevel);
+        }
+
+        public static void TriggerPlayerXpGained(int xpAmount)
+        {
+            PlayerXpGainedEvent?.Invoke(xpAmount);
+        }
+
+        public static void TriggerSpawnDrop(string itemId, Vector3 position, int itemType)
+        {
+            SpawnDropEvent?.Invoke(itemId, position, itemType);
+        }
+
+        public static void TriggerOpenChest(string chestId)
+        {
+            OpenChestEvent?.Invoke(chestId);
+        }
+
+        public static void TriggerEnemyDie(string enemyId)
+        {
+            EnemyDieEvent?.Invoke(enemyId);
+        }
+
+        public static void TriggerEnemyHealthChanged(string enemyId, float currentHealth, float maxHealth)
+        {
+            EnemyHealthChangedEvent?.Invoke(enemyId, currentHealth, maxHealth);
         }
     }
 }

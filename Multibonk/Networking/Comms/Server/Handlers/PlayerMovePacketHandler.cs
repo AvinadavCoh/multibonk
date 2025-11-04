@@ -41,9 +41,9 @@ namespace Multibonk.Networking.Comms.Server.Handlers
                 }
             });
 
-            foreach (var player in _lobbyContext.GetPlayers())
+            foreach (var otherPlayer in _lobbyContext.GetPlayers())
             {
-                if (player.Connection == null || player.UUID == playerId)
+                if (otherPlayer.Connection == null || otherPlayer.UUID == playerId)
                     continue;
 
                 var sendPacket = new SendPlayerMovedPacket(
@@ -51,7 +51,7 @@ namespace Multibonk.Networking.Comms.Server.Handlers
                     packet.Position
                 );
 
-                player.Connection.EnqueuePacket(sendPacket);
+                otherPlayer.Connection.EnqueuePacket(sendPacket);
             }
 
         }
