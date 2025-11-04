@@ -78,6 +78,15 @@ namespace Multibonk.Game.Handlers.NetworkNotify
             foreach (var client in allPlayers)
             {
                 DebugLogger.LogSpawn($"Processing client: {client.Name} (UUID: {client.UUID})");
+                DebugLogger.LogSpawn($"Client selected character: {client.SelectedCharacter}");
+
+                // Skip players who haven't selected a character yet
+                if (string.IsNullOrEmpty(client.SelectedCharacter) || client.SelectedCharacter == "None")
+                {
+                    DebugLogger.Warning($"Client {client.Name} hasn't selected a character yet, skipping spawn");
+                    continue;
+                }
+
                 var cPos = client.SpawnPosition;
                 DebugLogger.LogSpawn($"Client spawn position: ({cPos.x}, {cPos.y}, {cPos.z})");
 
@@ -105,6 +114,10 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                 {
                     if (otherPlayer.UUID == client.UUID)
                         continue; // Don't send spawn packet for themselves
+
+                    // Skip players who haven't selected a character
+                    if (string.IsNullOrEmpty(otherPlayer.SelectedCharacter) || otherPlayer.SelectedCharacter == "None")
+                        continue;
 
                     var otherPos = otherPlayer.SpawnPosition;
                     var otherRot = otherPlayer.SpawnRotation;
