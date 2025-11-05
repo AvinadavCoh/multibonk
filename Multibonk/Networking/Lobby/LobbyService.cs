@@ -34,6 +34,7 @@ namespace Multibonk.Networking.Lobby
             CurrentLobby.SetState(LobbyState.Hosting);
             CurrentLobby.TriggerLobbyCreated();
             LobbyPatchFlags.IsHosting = true;
+            LobbyPatchFlags.InMultiplayer = true;
         }
 
         public void JoinLobby(string ip, int port, string myName)
@@ -56,6 +57,7 @@ namespace Multibonk.Networking.Lobby
             CurrentLobby.SetState(LobbyState.Connected);
             CurrentLobby.TriggerLobbyJoin();
             LobbyPatchFlags.IsHosting = false;
+            LobbyPatchFlags.InMultiplayer = true;
         }
 
         public void AddPlayer(string playerName)
@@ -85,6 +87,7 @@ namespace Multibonk.Networking.Lobby
                 CurrentLobby.GetPlayers().Clear();
                 CurrentLobby.SetState(LobbyState.None);
                 LobbyPatchFlags.IsHosting = false;
+                LobbyPatchFlags.InMultiplayer = false;
             }
 
         }

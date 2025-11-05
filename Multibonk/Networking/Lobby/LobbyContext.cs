@@ -47,6 +47,7 @@ namespace Multibonk.Networking.Lobby
     public static class LobbyPatchFlags
     {
         public static bool IsHosting;
+        public static bool InMultiplayer; // True when hosting or connected to a lobby
     }
 
     public class LobbyContext

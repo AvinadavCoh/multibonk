@@ -18,6 +18,9 @@
        ITEM_PICKED_UP_PACKET = 12,
        ENEMY_DEATH_PACKET = 13,
        ENEMY_HEALTH_UPDATE_PACKET = 14,
+       ENEMY_SPAWN_PACKET = 15,
+       MAP_REVEAL = 16,
+       MAP_REVEAL_BULK = 17,
     }
 
     public enum ClientSentPacketId : byte

@@ -61,6 +61,8 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, PlayerXpEventHandler>();
             services.AddSingleton<IGameEventHandler, ItemDropEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemySyncEventHandler>();
+            services.AddSingleton<IGameEventHandler, EnemySpawnedEventHandler>();
+            services.AddSingleton<IGameEventHandler, MapRevealEventHandler>();
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
 
             services.AddSingleton<EventHandlerExecutor>();
@@ -83,6 +85,9 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, ItemPickedUpPacketHandler>();
             services.AddSingleton<IClientPacketHandler, EnemyDeathPacketHandler>();
             services.AddSingleton<IClientPacketHandler, EnemyHealthUpdatePacketHandler>();
+            services.AddSingleton<IClientPacketHandler, EnemySpawnPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, MapRevealPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, MapRevealBulkPacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();
@@ -105,6 +110,11 @@ namespace Multibonk
             executor = serviceProvider.GetService<EventHandlerExecutor>();
 
             var _lobbyContext = serviceProvider.GetService<LobbyContext>();
+
+            // Apply Harmony patches for game hooks
+            var harmony = new HarmonyLib.Harmony("com.avinadavcoh.multibonk");
+            harmony.PatchAll();
+            MelonLogger.Msg("Harmony patches applied successfully");
 
             base.OnInitializeMelon();
         }

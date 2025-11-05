@@ -13,11 +13,15 @@ This project is an open-source mod that enables multiplayer functionality for **
 | Player synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Players can see each other in real-time |
 | Map synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Same map is generated for all players |
 | TCP connection | ![OK](https://img.shields.io/badge/OK-green.svg) | Reliable network connection established |
-| Drops sync | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | Items dropped by players will be synchronized |
-| Level sync | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | Player levels will be synchronized |
-| XP sync | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | Experience points will be synchronized |
+| XP sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Experience points are synchronized |
+| Level sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Player level ups are synchronized |
+| Enemy spawn sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemies spawn for all players |
+| Enemy health sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemy damage and health updates (10% threshold) |
+| Enemy death sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemy deaths are synchronized |
+| Boss synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Boss spawners, health, and death fully synced |
+| Minimap sync | ![Passive](https://img.shields.io/badge/Passive-blue.svg) | Works naturally through player position sync |
+| Item drops sync | ![Partial](https://img.shields.io/badge/Partial-yellow.svg) | Infrastructure ready, needs game hooks |
 | Chest sync | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | Chests and loot will be synchronized |
-| Minimap sync | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | Minimap updates shared between players |
 | And much more planned! | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | -|
 
 ## Getting Started

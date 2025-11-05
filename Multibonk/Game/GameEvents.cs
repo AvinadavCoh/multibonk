@@ -20,6 +20,7 @@ namespace Multibonk.Game
         public static event Action BossDamagedEvent;
 
         public static event Action EnemySpawnEvent;
+        public static event Action<int, int, Vector3, int, bool> EnemySpawnedEvent; // enemyId, enemyType, position, level, isBoss
         public static event Action<string> EnemyDieEvent; // enemyId
         public static event Action<string, float, float> EnemyHealthChangedEvent; // enemyId, currentHealth, maxHealth
 
@@ -33,6 +34,8 @@ namespace Multibonk.Game
 
         public static event Action<int> PlayerLevelUpEvent; // newLevel
         public static event Action<int> PlayerXpGainedEvent; // xpAmount
+
+        public static event Action<int, int> MapTileRevealedEvent; // tileX, tileY
 
 
         public static void TriggerConfirmMap()
@@ -92,6 +95,16 @@ namespace Multibonk.Game
         public static void TriggerEnemyHealthChanged(string enemyId, float currentHealth, float maxHealth)
         {
             EnemyHealthChangedEvent?.Invoke(enemyId, currentHealth, maxHealth);
+        }
+
+        public static void TriggerEnemySpawned(int enemyId, int enemyType, Vector3 position, int level, bool isBoss)
+        {
+            EnemySpawnedEvent?.Invoke(enemyId, enemyType, position, level, isBoss);
+        }
+
+        public static void TriggerMapTileRevealed(int tileX, int tileY)
+        {
+            MapTileRevealedEvent?.Invoke(tileX, tileY);
         }
     }
 }
