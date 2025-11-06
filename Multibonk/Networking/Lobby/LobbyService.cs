@@ -1,6 +1,7 @@
 ﻿using MelonLoader;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Multibonk.Networking.Comms;
+using Multibonk.Networking.Steam;
 
 namespace Multibonk.Networking.Lobby
 {
@@ -8,11 +9,13 @@ namespace Multibonk.Networking.Lobby
     {
         private NetworkService NetworkService { get; }
         private LobbyContext CurrentLobby { get; }
+        private SteamTunnelService SteamTunnelService { get; }
 
-        public LobbyService(NetworkService service, LobbyContext context)
+        public LobbyService(NetworkService service, LobbyContext context, SteamTunnelService steamTunnelService)
         {
             NetworkService = service;
             CurrentLobby = context;
+            SteamTunnelService = steamTunnelService;
         }
 
         public void CreateLobby(string myName)
@@ -29,6 +32,8 @@ namespace Multibonk.Networking.Lobby
                 return;
             }
 
+            SteamTunnelService.ClearEndpoints();
+
             CurrentLobby.GetPlayers().Clear();
             CurrentLobby.SetMyself(new LobbyPlayer(name: myName));
             CurrentLobby.SetState(LobbyState.Hosting);
@@ -39,6 +44,14 @@ namespace Multibonk.Networking.Lobby
 
         public void JoinLobby(string ip, int port, string myName)
         {
+            // Check if we have a Steam invite waiting
+            if (SteamTunnelService.TryConsumeEndpoint(out var endpoint))
+            {
+                ip = endpoint.Address;
+                port = endpoint.Port;
+                MelonLogger.Msg($"Using Steam tunnel endpoint {endpoint}.");
+            }
+
             MelonLogger.Msg($"Joining lobby {ip}:{port} with the username: {myName}");
 
             try
@@ -83,6 +96,7 @@ namespace Multibonk.Networking.Lobby
             }
             finally
             {
+                SteamTunnelService.ClearEndpoints();
                 CurrentLobby.TriggerLobbyClosed();
                 CurrentLobby.GetPlayers().Clear();
                 CurrentLobby.SetState(LobbyState.None);

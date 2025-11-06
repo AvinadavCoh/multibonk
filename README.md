@@ -13,6 +13,7 @@ This project is an open-source mod that enables multiplayer functionality for **
 | Player synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Players can see each other in real-time |
 | Map synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Same map is generated for all players |
 | TCP connection | ![OK](https://img.shields.io/badge/OK-green.svg) | Reliable network connection established |
+| Steam integration | ![OK](https://img.shields.io/badge/OK-green.svg) | Invite friends via Steam overlay, auto-join through Rich Presence |
 | XP sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Experience points are synchronized |
 | Level sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Player level ups are synchronized |
 | Enemy spawn sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemies spawn for all players |
@@ -28,6 +29,16 @@ This project is an open-source mod that enables multiplayer functionality for **
 | And much more planned! | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | -|
 
 ## Getting Started
+
+### Easy Way (Steam Integration) 🎮
+
+1. Install [MelonLoader](https://melonwiki.xyz/#) for Megabonk
+2. Download the Multibonk mod (when available) and place it in `Megabonk/Mods/`
+3. Launch the game and press **F5** to open the multiplayer menu
+4. Click **"💬 Steam Friends Overlay"** to invite friends directly through Steam
+5. Friends can accept your invite and auto-join your game!
+
+### Manual Way (IP/Port)
 
 1. Download and install with the steps provided at [Melon Loader Website](https://melonwiki.xyz/#)  
 2. Follow the steps on the Melon Loader website to install Melon Loader  

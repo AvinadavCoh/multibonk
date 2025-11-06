@@ -2,6 +2,7 @@
 using Multibonk.UserInterface.Window;
 using MelonLoader;
 using Multibonk.Networking.Lobby;
+using Multibonk.Networking.Steam;
 
 namespace Multibonk
 {
@@ -23,21 +24,33 @@ namespace Multibonk
         public ClientLobbyWindow clientLobbyWindow;
         public HostLobbyWindow hostLobbyWindow;
         public PlayerHealthHUD playerHealthHUD;
+        public OptionsWindow optionsWindow;
+
+        private readonly SteamTunnelService steamTunnelService;
+        private readonly LobbyService lobbyService;
+        private bool lastOverlayAvailability = false;
+        private string steamTunnelStatusMessage = string.Empty;
+        private SteamTunnelEndpoint? displayedSteamEndpoint;
 
         public UIManager(
             ConnectionWindow connectionWindow,
             ClientLobbyWindow clientLobbyWindow,
             HostLobbyWindow hostLobbyWindow,
             PlayerHealthHUD playerHealthHUD,
+            OptionsWindow optionsWindow,
 
             LobbyContext lobby,
-            LobbyService lobbyService
+            LobbyService lobbyService,
+            SteamTunnelService steamTunnelService
         )
         {
             this.connectionWindow = connectionWindow;
             this.clientLobbyWindow = clientLobbyWindow;
             this.hostLobbyWindow = hostLobbyWindow;
             this.playerHealthHUD = playerHealthHUD;
+            this.optionsWindow = optionsWindow;
+            this.lobbyService = lobbyService;
+            this.steamTunnelService = steamTunnelService;
 
             connectionWindow.OnConnectClicked += (args) =>
             {
@@ -58,14 +71,22 @@ namespace Multibonk
                 lobbyService.CreateLobby(args.PlayerName);
             };
 
+            connectionWindow.OnSteamOverlayClicked += HandleSteamOverlayRequest;
+
             hostLobbyWindow.OnCloseLobby += () => lobbyService.CloseLobby();
+            hostLobbyWindow.OnSteamOverlayClicked += HandleSteamOverlayRequest;
+            hostLobbyWindow.OnOptionsClicked += ToggleOptions;
 
             clientLobbyWindow.OnLeaveLobby += () => lobbyService.CloseLobby();
+            clientLobbyWindow.OnSteamOverlayClicked += HandleSteamOverlayRequest;
+            clientLobbyWindow.OnOptionsClicked += ToggleOptions;
+
+            optionsWindow.OpenSteamOverlayRequested += HandleSteamOverlayRequest;
 
             lobby.OnLobbyJoin += (_) => SetState(UIState.ClientLobby);
             lobby.OnLobbyCreated += (_) => SetState(UIState.HostLobby);
             lobby.OnLobbyClosed += (_) => SetState(UIState.Connection);
-            lobby.OnLobbyJoinFailed += (_) => SetState(UIState.Connection);
+            lobby.OnLobbyJoinFailed += (reason) => HandleLobbyJoinFailed(reason);
 
         }
 
@@ -81,6 +102,9 @@ namespace Multibonk
             {
                 IsShowingMenu = _showingMenuBuffer;
             }
+
+            // Refresh Steam tunnel status periodically
+            RefreshSteamTunnelStatus();
 
             if (IsShowingMenu) {
                 switch (currentState)
@@ -101,6 +125,9 @@ namespace Multibonk
 
             // Always show health HUD when in-game (even with F5 menu hidden)
             playerHealthHUD.Handle();
+
+            // Always render options window (it controls its own visibility)
+            optionsWindow.Handle();
         }
         public void SetState(UIState newState)
         {
@@ -108,6 +135,123 @@ namespace Multibonk
         }
 
         public UIState GetState() => currentState;
+
+        private void HandleSteamOverlayRequest()
+        {
+            if (!steamTunnelService.TryOpenFriendsOverlay())
+            {
+                RefreshSteamTunnelStatus(forceUpdate: true);
+            }
+        }
+
+        private void RefreshSteamTunnelStatus(bool forceUpdate = false)
+        {
+            bool overlayAvailable = steamTunnelService.IsOverlayAvailable;
+            SteamTunnelEndpoint? endpoint = null;
+            string status;
+
+            if (!overlayAvailable)
+            {
+                status = "Steam overlay is unavailable. Make sure Steam is running and overlay access is enabled.";
+            }
+            else if (steamTunnelService.TryPeekEndpoint(out var pending))
+            {
+                endpoint = pending;
+                status = $"Steam invite ready: {pending.Address}:{pending.Port}.";
+            }
+            else
+            {
+                status = "Open the Steam friends overlay to invite or join friends.";
+            }
+
+            bool overlayChanged = forceUpdate || overlayAvailable != lastOverlayAvailability;
+            if (overlayChanged)
+            {
+                connectionWindow.SetSteamOverlayAvailability(overlayAvailable);
+                clientLobbyWindow.SetSteamOverlayAvailability(overlayAvailable);
+                hostLobbyWindow.SetSteamOverlayAvailability(overlayAvailable);
+                optionsWindow.SetSteamOverlayAvailability(overlayAvailable);
+                lastOverlayAvailability = overlayAvailable;
+            }
+
+            if (forceUpdate || !string.Equals(status, steamTunnelStatusMessage, StringComparison.Ordinal))
+            {
+                steamTunnelStatusMessage = status;
+                connectionWindow.SetSteamTunnelStatus(status);
+                clientLobbyWindow.SetSteamTunnelStatus(status);
+                hostLobbyWindow.SetSteamTunnelStatus(status);
+                optionsWindow.SetSteamTunnelStatus(status);
+            }
+
+            if (endpoint.HasValue)
+            {
+                bool shouldUpdateEndpoint = forceUpdate || !displayedSteamEndpoint.HasValue || !displayedSteamEndpoint.Value.Equals(endpoint.Value);
+                if (shouldUpdateEndpoint)
+                {
+                    displayedSteamEndpoint = endpoint;
+                    connectionWindow.SetIpAddress(endpoint.Value.ToString());
+                    AttemptAutoJoinFromSteam(endpoint.Value);
+                }
+            }
+            else if (displayedSteamEndpoint.HasValue)
+            {
+                displayedSteamEndpoint = null;
+            }
+        }
+
+        private void AttemptAutoJoinFromSteam(SteamTunnelEndpoint endpoint)
+        {
+            if (currentState != UIState.Connection)
+            {
+                return;
+            }
+
+            if (!steamTunnelService.TryConsumeEndpoint(out var consumed))
+            {
+                return;
+            }
+
+            var playerName = connectionWindow.GetPlayerName();
+            if (string.IsNullOrWhiteSpace(playerName))
+            {
+                playerName = Preferences.PlayerName.Value;
+            }
+
+            if (string.IsNullOrWhiteSpace(playerName))
+            {
+                playerName = "Player";
+            }
+
+            Preferences.PlayerName.Value = playerName;
+
+            var message = $"Connecting to Steam invite {consumed.Address}:{consumed.Port}...";
+            steamTunnelStatusMessage = message;
+            connectionWindow.SetConnectionError(string.Empty);
+            connectionWindow.SetSteamTunnelStatus(message);
+            clientLobbyWindow.SetSteamTunnelStatus(message);
+            hostLobbyWindow.SetSteamTunnelStatus(message);
+
+            MelonLogger.Msg($"Automatically joining Steam tunnel endpoint {consumed}.");
+            lobbyService.JoinLobby(consumed.Address, consumed.Port, playerName);
+        }
+
+        private void HandleLobbyJoinFailed(string reason)
+        {
+            SetState(UIState.Connection);
+            connectionWindow.SetConnectionError(reason);
+        }
+
+        private void ToggleOptions()
+        {
+            if (optionsWindow.IsOpen)
+            {
+                optionsWindow.Hide();
+            }
+            else
+            {
+                optionsWindow.Show();
+            }
+        }
 
     }
 }

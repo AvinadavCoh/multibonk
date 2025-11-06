@@ -8,6 +8,11 @@ namespace Multibonk.UserInterface.Window
     {
         private LobbyContext lobby;
         public event Action OnLeaveLobby;
+        public event Action OnSteamOverlayClicked;
+        public event Action OnOptionsClicked;
+
+        private bool steamOverlayAvailable = false;
+        private string steamTunnelStatus = string.Empty;
 
         public ClientLobbyWindow(LobbyContext lobby) : base(new Rect(50, 50, 300, 200)) 
         {
@@ -44,6 +49,29 @@ namespace Multibonk.UserInterface.Window
 
             GUILayout.FlexibleSpace();
 
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("⚙️ Options", CustomStyles.ButtonStyle, GUILayout.Height(30)))
+            {
+                OnOptionsClicked?.Invoke();
+            }
+            GUILayout.Space(5);
+            bool originalState = GUI.enabled;
+            GUI.enabled = steamOverlayAvailable;
+            if (GUILayout.Button("💬 Steam Friends", CustomStyles.ButtonStyle, GUILayout.Height(30)))
+            {
+                OnSteamOverlayClicked?.Invoke();
+            }
+            GUI.enabled = originalState;
+            GUILayout.EndHorizontal();
+
+            if (!string.IsNullOrEmpty(steamTunnelStatus))
+            {
+                GUILayout.Space(5);
+                GUILayout.Label(steamTunnelStatus, CustomStyles.LabelStyle);
+            }
+
+            GUILayout.Space(10);
+
             if (GUILayout.Button("❌ Leave Lobby", CustomStyles.ButtonStyle, GUILayout.Height(35))) 
                 LeaveLobby();
 
@@ -54,6 +82,9 @@ namespace Multibonk.UserInterface.Window
         {
             OnLeaveLobby?.Invoke();
         }
+
+        public void SetSteamOverlayAvailability(bool available) => steamOverlayAvailable = available;
+        public void SetSteamTunnelStatus(string status) => steamTunnelStatus = status;
     }
 
 }

@@ -12,6 +12,7 @@ using Multibonk.Game;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Game.Handlers.NetworkNotify;
 using Multibonk.Game.Handlers.Logic;
+using Multibonk.Networking.Steam;
 
 namespace Multibonk
 {
@@ -68,6 +69,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, PlayerDamageEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerDeathEventHandler>();
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
+            services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
 
             services.AddSingleton<EventHandlerExecutor>();
 
@@ -104,12 +106,15 @@ namespace Multibonk
 
             // Packet Handlers cannot call services. Otherwise, it will cause circular dependency
             services.AddSingleton<NetworkService>();
+            services.AddSingleton<SteamTunnelService>();
+            services.AddSingleton<SteamTunnelCallbackBinder>();
             services.AddSingleton<LobbyService>();
 
             services.AddSingleton<ClientLobbyWindow>();
             services.AddSingleton<ConnectionWindow>();
             services.AddSingleton<HostLobbyWindow>();
             services.AddSingleton<PlayerHealthHUD>();
+            services.AddSingleton<OptionsWindow>();
 
             services.AddSingleton<UIManager>();
 
@@ -119,6 +124,9 @@ namespace Multibonk
             executor = serviceProvider.GetService<EventHandlerExecutor>();
 
             var _lobbyContext = serviceProvider.GetService<LobbyContext>();
+
+            // Initialize Steam callback binder (activates Steam Rich Presence join support)
+            serviceProvider.GetService<SteamTunnelCallbackBinder>();
 
             // Apply Harmony patches for game hooks
             var harmony = new HarmonyLib.Harmony("com.avinadavcoh.multibonk");

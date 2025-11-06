@@ -18,11 +18,15 @@ namespace Multibonk.UserInterface.Window
     {
         public event Action<ConnectionWindowEventArgs> OnStartServerClicked;
         public event Action<ConnectionWindowEventArgs> OnConnectClicked;
+        public event Action OnSteamOverlayClicked;
 
         private string ipAddress = "127.0.0.1";
         private string playerName = "PlayerName";
         private bool nameIsFocused = false;
         private bool ipIsFocused = false;
+        private bool steamOverlayAvailable = false;
+        private string steamTunnelStatus = string.Empty;
+        private string connectionErrorMessage = string.Empty;
 
         public ConnectionWindow() : base(new Rect(10, 10, 300, 200)) 
         {
@@ -69,10 +73,43 @@ namespace Multibonk.UserInterface.Window
                 OnConnect();
             }
 
+            GUILayout.Space(10);
+
+            // Steam overlay button
+            bool originalState = GUI.enabled;
+            GUI.enabled = steamOverlayAvailable;
+            if (GUILayout.Button("💬 Steam Friends Overlay", CustomStyles.ButtonStyle, GUILayout.Height(30)))
+            {
+                OnSteamOverlayClicked?.Invoke();
+            }
+            GUI.enabled = originalState;
+
+            // Display Steam tunnel status
+            if (!string.IsNullOrEmpty(steamTunnelStatus))
+            {
+                GUILayout.Space(5);
+                GUILayout.Label(steamTunnelStatus, CustomStyles.LabelStyle);
+            }
+
+            // Display connection error
+            if (!string.IsNullOrEmpty(connectionErrorMessage))
+            {
+                GUILayout.Space(5);
+                var errorStyle = new GUIStyle(CustomStyles.LabelStyle);
+                errorStyle.normal.textColor = new Color(1f, 0.3f, 0.3f);
+                GUILayout.Label(connectionErrorMessage, errorStyle);
+            }
+
             GUILayout.EndArea();
         }
 
         private void OnStartServer() => OnStartServerClicked?.Invoke(new ConnectionWindowEventArgs(playerName, ipAddress));
         private void OnConnect() => OnConnectClicked?.Invoke(new ConnectionWindowEventArgs(playerName, ipAddress));
+
+        public void SetSteamOverlayAvailability(bool available) => steamOverlayAvailable = available;
+        public void SetSteamTunnelStatus(string status) => steamTunnelStatus = status;
+        public void SetIpAddress(string address) => ipAddress = address;
+        public string GetPlayerName() => playerName;
+        public void SetConnectionError(string message) => connectionErrorMessage = message;
     }
 }
