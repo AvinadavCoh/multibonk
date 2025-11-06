@@ -23,6 +23,8 @@ This project is an open-source mod that enables multiplayer functionality for **
 | Item drops sync | ![Partial](https://img.shields.io/badge/Partial-yellow.svg) | Infrastructure ready, needs game hooks |
 | Chest sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Chest interactions broadcast to all players |
 | Shrine/Shop sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Shrine usage synchronized across players |
+| Player damage sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Damage events and health changes synchronized |
+| Player death sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Death events synced, players stay in multiplayer lobby |
 | And much more planned! | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | -|
 
 ## Getting Started

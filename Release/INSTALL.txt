@@ -2,7 +2,7 @@
   MEGABONK MULTIPLAYER MOD - Installation
 ==============================================
 
-VERSION: Development Build (Chest & Shrine Sync Added!)
+VERSION: Development Build (Player Health & Death Sync!)
 DATE: November 6, 2025
 
 ==============================================
@@ -74,8 +74,10 @@ FEATURES WORKING:
 ✅ Enemy death synchronization (NEW!)
 ✅ Boss fight synchronization
 ✅ Boss spawner activation (host-only)
-✅ Chest synchronization (NEW!)
-✅ Shrine/Shop synchronization (NEW!)
+✅ Chest synchronization
+✅ Shrine/Shop synchronization
+✅ Player damage synchronization (NEW!)
+✅ Player death synchronization (NEW!)
 
 🔵 PASSIVE FEATURES:
 - Minimap sync (works through player positions)

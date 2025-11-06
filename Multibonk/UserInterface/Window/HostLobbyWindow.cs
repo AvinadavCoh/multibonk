@@ -15,16 +15,36 @@ namespace Multibonk.UserInterface.Window
 
         protected override void RenderWindow(Rect rect)
         {
-            GUILayout.BeginArea(rect, GUI.skin.window);
-            GUI.Box(new Rect(0, 0, rect.width, rect.height), GUIContent.none, GUI.skin.window);
+            CustomStyles.DrawWindowBackground(rect, "🖥️ Host Lobby");
 
-            GUILayout.Label("Host Lobby (Hide with F5)", new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } });
-            GUILayout.Label("Connected Players:", new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } });
+            GUILayout.BeginArea(new Rect(rect.x + 10, rect.y + 40, rect.width - 20, rect.height - 50));
+
+            GUILayout.Label("Press F5 to hide this menu", CustomStyles.LabelStyle);
+            GUILayout.Space(10);
+
+            GUILayout.Label("Connected Players:", CustomStyles.HeaderStyle);
+            GUILayout.Space(5);
 
             foreach (var player in LobbyContext.GetPlayers())
-                GUILayout.Label($"{player.Name} - {player.Ping}ms - {player.SelectedCharacter}", new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } });
+            {
+                string playerIcon = "👤";
+                string character = string.IsNullOrEmpty(player.SelectedCharacter) || player.SelectedCharacter == "None" 
+                    ? "⏳ Selecting..." 
+                    : $"✓ {player.SelectedCharacter}";
+                
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{playerIcon} {player.Name}", CustomStyles.LabelStyle);
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{player.Ping}ms | {character}", CustomStyles.LabelStyle);
+                GUILayout.EndHorizontal();
+                
+                GUILayout.Space(3);
+            }
 
-            if (GUILayout.Button("Leave Lobby")) CloseLobby();
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("❌ Close Lobby", CustomStyles.ButtonStyle, GUILayout.Height(35))) 
+                CloseLobby();
 
             GUILayout.EndArea();
         }

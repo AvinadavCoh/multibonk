@@ -109,6 +109,7 @@ namespace Multibonk
             services.AddSingleton<ClientLobbyWindow>();
             services.AddSingleton<ConnectionWindow>();
             services.AddSingleton<HostLobbyWindow>();
+            services.AddSingleton<PlayerHealthHUD>();
 
             services.AddSingleton<UIManager>();
 

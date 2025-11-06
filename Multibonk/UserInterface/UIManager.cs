@@ -22,11 +22,13 @@ namespace Multibonk
         public ConnectionWindow connectionWindow;
         public ClientLobbyWindow clientLobbyWindow;
         public HostLobbyWindow hostLobbyWindow;
+        public PlayerHealthHUD playerHealthHUD;
 
         public UIManager(
             ConnectionWindow connectionWindow,
             ClientLobbyWindow clientLobbyWindow,
             HostLobbyWindow hostLobbyWindow,
+            PlayerHealthHUD playerHealthHUD,
 
             LobbyContext lobby,
             LobbyService lobbyService
@@ -35,6 +37,7 @@ namespace Multibonk
             this.connectionWindow = connectionWindow;
             this.clientLobbyWindow = clientLobbyWindow;
             this.hostLobbyWindow = hostLobbyWindow;
+            this.playerHealthHUD = playerHealthHUD;
 
             connectionWindow.OnConnectClicked += (args) =>
             {
@@ -95,6 +98,9 @@ namespace Multibonk
                         break;
                 }
             }
+
+            // Always show health HUD when in-game (even with F5 menu hidden)
+            playerHealthHUD.Handle();
         }
         public void SetState(UIState newState)
         {

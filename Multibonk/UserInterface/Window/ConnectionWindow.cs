@@ -32,31 +32,37 @@ namespace Multibonk.UserInterface.Window
 
         protected override void RenderWindow(Rect rect)
         {
-            GUILayout.BeginArea(rect, GUI.skin.window);
-            GUI.Box(new Rect(0, 0, rect.width, rect.height), GUIContent.none, GUI.skin.window);
+            CustomStyles.DrawWindowBackground(rect, "🌐 Multibonk Multiplayer");
 
-            GUILayout.Label("Multibonk Connection Menu (Hide with F5)", new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } });
+            GUILayout.BeginArea(new Rect(rect.x + 10, rect.y + 40, rect.width - 20, rect.height - 50));
 
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Name:", new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } });
-            playerName = Utils.CustomTextField(playerName, ref nameIsFocused, new Rect(0, 0, 150, 20));
-            GUILayout.EndHorizontal();
-
+            GUILayout.Label("Press F5 to hide/show this menu", CustomStyles.LabelStyle);
+            GUILayout.Space(10);
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label("IP:", new GUIStyle(GUI.skin.label) { normal = { textColor = Color.white } });
-            ipAddress = Utils.CustomTextField(ipAddress, ref ipIsFocused, new Rect(0, 0, 150, 20));
+            GUILayout.Label("Name:", CustomStyles.LabelStyle, GUILayout.Width(60));
+            playerName = GUILayout.TextField(playerName, CustomStyles.TextFieldStyle);
             GUILayout.EndHorizontal();
 
-            if (GUILayout.Button("Start Server"))
+            GUILayout.Space(5);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("IP:Port:", CustomStyles.LabelStyle, GUILayout.Width(60));
+            ipAddress = GUILayout.TextField(ipAddress, CustomStyles.TextFieldStyle);
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(15);
+
+            if (GUILayout.Button("🖥️ Start Server (Host)", CustomStyles.ButtonStyle, GUILayout.Height(35)))
             {
                 Preferences.IpAddress.Value = ipAddress;
                 Preferences.PlayerName.Value = playerName;
                 OnStartServer();
             }
 
-            if (GUILayout.Button("Connect"))
+            GUILayout.Space(5);
+
+            if (GUILayout.Button("🔌 Connect to Server", CustomStyles.ButtonStyle, GUILayout.Height(35)))
             {
                 Preferences.IpAddress.Value = ipAddress;
                 Preferences.PlayerName.Value = playerName;
