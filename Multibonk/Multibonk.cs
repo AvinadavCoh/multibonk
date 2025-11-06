@@ -65,6 +65,8 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, MapRevealEventHandler>();
             services.AddSingleton<IGameEventHandler, ChestOpenEventHandler>();
             services.AddSingleton<IGameEventHandler, ShrineUseEventHandler>();
+            services.AddSingleton<IGameEventHandler, PlayerDamageEventHandler>();
+            services.AddSingleton<IGameEventHandler, PlayerDeathEventHandler>();
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
 
             services.AddSingleton<EventHandlerExecutor>();
@@ -92,6 +94,8 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, MapRevealBulkPacketHandler>();
             services.AddSingleton<IClientPacketHandler, ChestOpenPacketHandler>();
             services.AddSingleton<IClientPacketHandler, ShrineUsePacketHandler>();
+            services.AddSingleton<IClientPacketHandler, PlayerDamagePacketHandler>();
+            services.AddSingleton<IClientPacketHandler, PlayerDeathPacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();

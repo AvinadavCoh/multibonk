@@ -23,6 +23,8 @@
        MAP_REVEAL_BULK = 17,
        CHEST_OPEN = 18,
        SHRINE_USE = 19,
+       PLAYER_DAMAGE = 20,
+       PLAYER_DEATH = 21,
     }
 
     public enum ClientSentPacketId : byte

@@ -111,5 +111,15 @@ namespace Multibonk.Game
         {
             UseShrineEvent?.Invoke();
         }
+
+        public static void TriggerPlayerTakeHit()
+        {
+            PlayerTakeHitEvent?.Invoke();
+        }
+
+        public static void TriggerPlayerDie()
+        {
+            PlayerDieEvent?.Invoke();
+        }
     }
 }
