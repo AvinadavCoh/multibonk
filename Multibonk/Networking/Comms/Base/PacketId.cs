@@ -21,6 +21,8 @@
        ENEMY_SPAWN_PACKET = 15,
        MAP_REVEAL = 16,
        MAP_REVEAL_BULK = 17,
+       CHEST_OPEN = 18,
+       SHRINE_USE = 19,
     }
 
     public enum ClientSentPacketId : byte

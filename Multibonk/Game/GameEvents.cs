@@ -106,5 +106,10 @@ namespace Multibonk.Game
         {
             MapTileRevealedEvent?.Invoke(tileX, tileY);
         }
+
+        public static void TriggerUseShrine()
+        {
+            UseShrineEvent?.Invoke();
+        }
     }
 }

@@ -2,8 +2,8 @@
   MEGABONK MULTIPLAYER MOD - Installation
 ==============================================
 
-VERSION: Development Build (XP Sync Working!)
-DATE: November 4, 2025
+VERSION: Development Build (Boss & Enemy Sync Working!)
+DATE: November 5, 2025
 
 ==============================================
 REQUIREMENTS:
@@ -67,14 +67,21 @@ FEATURES WORKING:
 ✅ Map synchronization
 ✅ Character selection sync
 ✅ Movement & rotation sync
-✅ XP gain synchronization (NEW!)
-✅ Level up synchronization (NEW!)
+✅ XP gain synchronization
+✅ Level up synchronization
+✅ Enemy spawn synchronization (NEW!)
+✅ Enemy health synchronization (NEW!)
+✅ Enemy death synchronization (NEW!)
+✅ Boss fight synchronization (NEW!)
+✅ Boss spawner activation (host-only) (NEW!)
+
+🔵 PASSIVE FEATURES:
+- Minimap sync (works through player positions)
 
 🚧 IN PROGRESS:
-- Item drops synchronization
-- Enemy health synchronization
+- Item drops synchronization (infrastructure ready)
 - Chest synchronization
-- Minimap sync
+- Game pause/unpause sync
 
 ==============================================
 TROUBLESHOOTING:

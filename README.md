@@ -21,7 +21,8 @@ This project is an open-source mod that enables multiplayer functionality for **
 | Boss synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Boss spawners, health, and death fully synced |
 | Minimap sync | ![Passive](https://img.shields.io/badge/Passive-blue.svg) | Works naturally through player position sync |
 | Item drops sync | ![Partial](https://img.shields.io/badge/Partial-yellow.svg) | Infrastructure ready, needs game hooks |
-| Chest sync | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | Chests and loot will be synchronized |
+| Chest sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Chest interactions broadcast to all players |
+| Shrine/Shop sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Shrine usage synchronized across players |
 | And much more planned! | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | -|
 
 ## Getting Started

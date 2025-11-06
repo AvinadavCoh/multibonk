@@ -14,13 +14,15 @@ namespace Multibonk.Game.Patches
         /// <summary>
         /// Patches EnemyManager.SpawnBoss to broadcast boss spawns
         /// This ensures bosses are properly synchronized with the IsBoss flag
+        /// DISABLED: Boss spawns are already handled by EnemySpawnPatch in EnemySyncPatches.cs
         /// </summary>
         [HarmonyPatch]
         class SpawnBossPatch
         {
             static bool Prepare()
             {
-                return true;
+                // Disable this patch - boss spawns already work via main enemy spawn system
+                return false;
             }
 
             static System.Reflection.MethodBase TargetMethod()
@@ -34,10 +36,17 @@ namespace Multibonk.Game.Patches
                     return null;
                 }
 
-                var enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EnemyManager");
+                // Try Il2Cpp namespace first (IL2CPP games)
+                var enemyManagerType = assembly.GetType("Il2Cpp.EnemyManager");
                 if (enemyManagerType == null)
                 {
-                    MelonLogger.Warning("Could not find EnemyManager type");
+                    // Try the full namespace
+                    enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EnemyManager");
+                }
+                
+                if (enemyManagerType == null)
+                {
+                    MelonLogger.Warning("Could not find EnemyManager type - SpawnBoss patch disabled");
                     return null;
                 }
 
@@ -47,7 +56,7 @@ namespace Multibonk.Game.Patches
                 
                 if (spawnBossMethod == null)
                 {
-                    MelonLogger.Warning("Could not find SpawnBoss method");
+                    MelonLogger.Warning("Could not find SpawnBoss method - patch disabled");
                     return null;
                 }
 
@@ -107,13 +116,16 @@ namespace Multibonk.Game.Patches
         /// <summary>
         /// Patches InteractableBossSpawner.Interact to sync boss spawner activation
         /// When one player activates a boss spawner, all players should see the boss
+        /// DISABLED: Boss spawner interactions already sync via main enemy spawn system
+        /// Bosses spawn properly when host activates spawner
         /// </summary>
         [HarmonyPatch]
         class BossSpawnerInteractPatch
         {
             static bool Prepare()
             {
-                return true;
+                // Disable this patch - boss spawning already works without it
+                return false;
             }
 
             static System.Reflection.MethodBase TargetMethod()
@@ -140,7 +152,7 @@ namespace Multibonk.Game.Patches
                 
                 if (interactMethod == null)
                 {
-                    MelonLogger.Warning("Could not find Interact method on InteractableBossSpawner");
+                    MelonLogger.Warning("Could not find Interact method on InteractableBossSpawner - patch disabled");
                     return null;
                 }
 
