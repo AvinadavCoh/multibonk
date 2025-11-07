@@ -10,8 +10,8 @@ namespace Multibonk.Networking.Comms.Client.Handlers
 {
     /// <summary>
     /// Client handler for stage transition (portal activation)
-    /// When host activates portal, this finds InteractableBossSpawnerFinal and triggers Interact()
-    /// The Interact() method internally calls DoLoadNextStage() coroutine
+    /// When host activates portal, this finds InteractablePortal or InteractablePortalFinal and triggers Interact()
+    /// Works for both stage transitions (1→2, 2→3) and final game completion
     /// </summary>
     public class StageTransitionPacketHandler : IClientPacketHandler
     {
@@ -31,7 +31,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 {
                     try
                     {
-                        // Find InteractableBossSpawnerFinal type via reflection
+                        // Find portal types via reflection
                         var assembly = AppDomain.CurrentDomain.GetAssemblies()
                             .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
 
@@ -41,14 +41,17 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                             return;
                         }
 
-                        var portalType = assembly.GetType("Il2Cpp.InteractableBossSpawnerFinal");
-                        if (portalType == null)
+                        // Try to find InteractablePortal (stages 1→2, 2→3)
+                        var portalType = assembly.GetType("Il2Cpp.InteractablePortal");
+                        var portalFinalType = assembly.GetType("Il2Cpp.InteractablePortalFinal");
+
+                        if (portalType == null || portalFinalType == null)
                         {
-                            MelonLogger.Error("[Client] Could not find InteractableBossSpawnerFinal type");
+                            MelonLogger.Error("[Client] Could not find portal types");
                             return;
                         }
 
-                        // Find the portal in the scene
+                        // Try to find InteractablePortal first (more common)
                         var findMethod = typeof(UnityEngine.Object).GetMethod("FindObjectOfType",
                             new[] { typeof(Type) });
                         
@@ -58,21 +61,33 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                             return;
                         }
 
-                        var portal = findMethod.Invoke(null, new object[] { portalType });
+                        object portal = findMethod.Invoke(null, new object[] { portalType });
+                        Type activePortalType = portalType;
                         
+                        // If no regular portal, try final portal
                         if (portal == null)
                         {
-                            MelonLogger.Warning("[Client] No portal (InteractableBossSpawnerFinal) found in scene");
-                            return;
+                            portal = findMethod.Invoke(null, new object[] { portalFinalType });
+                            activePortalType = portalFinalType;
+                            
+                            if (portal == null)
+                            {
+                                MelonLogger.Warning("[Client] No portal found in scene (InteractablePortal or InteractablePortalFinal)");
+                                return;
+                            }
+                            
+                            MelonLogger.Msg("[Client] Found InteractablePortalFinal in scene");
+                        }
+                        else
+                        {
+                            MelonLogger.Msg("[Client] Found InteractablePortal in scene");
                         }
 
-                        MelonLogger.Msg("[Client] Found portal in scene");
-
-                        // Call Interact() method which triggers DoLoadNextStage() coroutine
-                        var interactMethod = portalType.GetMethod("Interact");
+                        // Call Interact() method which triggers DoLoadNextStage() or DoFinishGame()
+                        var interactMethod = activePortalType.GetMethod("Interact");
                         if (interactMethod == null)
                         {
-                            MelonLogger.Error("[Client] Could not find Interact method on InteractableBossSpawnerFinal");
+                            MelonLogger.Error("[Client] Could not find Interact method on portal");
                             return;
                         }
 

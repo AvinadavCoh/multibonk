@@ -200,8 +200,8 @@ namespace Multibonk.Game.Patches
         }
 
         /// <summary>
-        /// Patches InteractableBossSpawnerFinal.Interact to sync stage transitions
-        /// When host activates the portal, broadcast to all clients to load next stage
+        /// Patches InteractablePortal.Interact to sync stage transitions (Stages 1→2, 2→3)
+        /// When host activates the portal after killing boss, broadcast to all clients
         /// </summary>
         [HarmonyPatch]
         class PortalInteractPatch
@@ -217,10 +217,10 @@ namespace Multibonk.Game.Patches
                     return null;
                 }
 
-                var portalType = assembly.GetType("Il2Cpp.InteractableBossSpawnerFinal");
+                var portalType = assembly.GetType("Il2Cpp.InteractablePortal");
                 if (portalType == null)
                 {
-                    MelonLogger.Warning("Could not find InteractableBossSpawnerFinal type");
+                    MelonLogger.Warning("Could not find InteractablePortal type");
                     return null;
                 }
 
@@ -230,11 +230,11 @@ namespace Multibonk.Game.Patches
                 
                 if (interactMethod == null)
                 {
-                    MelonLogger.Warning("Could not find Interact method on InteractableBossSpawnerFinal - patch disabled");
+                    MelonLogger.Warning("Could not find Interact method on InteractablePortal - patch disabled");
                     return null;
                 }
 
-                MelonLogger.Msg("Found InteractableBossSpawnerFinal.Interact for patching");
+                MelonLogger.Msg("Found InteractablePortal.Interact for patching");
                 return interactMethod;
             }
 
@@ -247,7 +247,7 @@ namespace Multibonk.Game.Patches
                 if (LobbyPatchFlags.IsHosting)
                 {
                     // Host activates portal and broadcasts to clients
-                    MelonLogger.Msg("[Host] Portal activated - broadcasting stage transition");
+                    MelonLogger.Msg("[Host] Stage portal activated - broadcasting transition");
                     GameEvents.TriggerStageTransition();
                     return true;
                 }
@@ -255,7 +255,69 @@ namespace Multibonk.Game.Patches
                 {
                     // Client cannot activate portal directly
                     // They will receive stage transition via packet handler
-                    MelonLogger.Msg("[Client] Portal interaction blocked - waiting for host stage transition");
+                    MelonLogger.Msg("[Client] Portal interaction blocked - waiting for host transition");
+                    return false; // Block the interaction
+                }
+            }
+        }
+
+        /// <summary>
+        /// Patches InteractablePortalFinal.Interact to sync game completion
+        /// When host activates the final portal, broadcast to all clients
+        /// </summary>
+        [HarmonyPatch]
+        class PortalFinalInteractPatch
+        {
+            static System.Reflection.MethodBase TargetMethod()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                {
+                    MelonLogger.Warning("Could not find Assembly-CSharp for PortalFinalInteractPatch");
+                    return null;
+                }
+
+                var portalType = assembly.GetType("Il2Cpp.InteractablePortalFinal");
+                if (portalType == null)
+                {
+                    MelonLogger.Warning("Could not find InteractablePortalFinal type");
+                    return null;
+                }
+
+                // Find Interact method
+                var interactMethod = portalType.GetMethod("Interact", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                
+                if (interactMethod == null)
+                {
+                    MelonLogger.Warning("Could not find Interact method on InteractablePortalFinal - patch disabled");
+                    return null;
+                }
+
+                MelonLogger.Msg("Found InteractablePortalFinal.Interact for patching");
+                return interactMethod;
+            }
+
+            static bool Prefix(object __instance)
+            {
+                // Only host can activate final portal in multiplayer
+                if (!LobbyPatchFlags.InMultiplayer)
+                    return true; // Single player, allow normal behavior
+
+                if (LobbyPatchFlags.IsHosting)
+                {
+                    // Host activates final portal and broadcasts to clients
+                    MelonLogger.Msg("[Host] Final portal activated - broadcasting game completion");
+                    GameEvents.TriggerStageTransition();
+                    return true;
+                }
+                else
+                {
+                    // Client cannot activate portal directly
+                    // They will receive stage transition via packet handler
+                    MelonLogger.Msg("[Client] Final portal interaction blocked - waiting for host");
                     return false; // Block the interaction
                 }
             }
