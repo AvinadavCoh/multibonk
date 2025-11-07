@@ -106,8 +106,17 @@ namespace Multibonk.Game.Handlers.NetworkNotify
 
                 // Spawn this client's player on the host using THEIR position (or fallback)
                 var clientCharacter = Enum.Parse<ECharacter>(client.SelectedCharacter);
-                GameFunctions.SpawnNetworkPlayer(client.UUID, clientCharacter, spawnPos, spawnRot);
-                DebugLogger.LogSpawn($"Spawned {client.Name} locally on host at ({spawnPos.x}, {spawnPos.y}, {spawnPos.z})");
+                try
+                {
+                    GameFunctions.SpawnNetworkPlayer(client.UUID, clientCharacter, spawnPos, spawnRot);
+                    DebugLogger.LogSpawn($"Spawned {client.Name} locally on host at ({spawnPos.x}, {spawnPos.y}, {spawnPos.z})");
+                }
+                catch (Exception spawnEx)
+                {
+                    DebugLogger.Error($"Failed to spawn {client.Name}: {spawnEx.Message}");
+                    DebugLogger.Error($"Stack: {spawnEx.StackTrace}");
+                    continue; // Skip sending spawn packets for this player if spawn failed
+                }
 
                 // Send spawn packets to this client for ALL other players
                 foreach (var otherPlayer in allPlayers)

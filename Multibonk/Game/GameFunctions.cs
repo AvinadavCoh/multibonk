@@ -95,10 +95,23 @@ namespace Multibonk.Game
                 catch (Exception invEx)
                 {
                     DebugLogger.Warning($"Failed to create PlayerInventory (will use visual-only mode): {invEx.Message}");
+                    DebugLogger.Warning($"Stack: {invEx.StackTrace}");
                     inv = null;
                 }
                 
-                renderer.SetCharacter(data, inv, position);
+                try
+                {
+                    DebugLogger.LogSpawn($"Setting character on renderer...");
+                    renderer.SetCharacter(data, inv, position);
+                    DebugLogger.LogSpawn($"Character set successfully");
+                }
+                catch (Exception setCharEx)
+                {
+                    DebugLogger.Error($"Failed to SetCharacter: {setCharEx.Message}");
+                    DebugLogger.Error($"Stack: {setCharEx.StackTrace}");
+                    throw;
+                }
+                
                 renderer.CreateMaterials(4);
 
                 rendererContainer.transform.localPosition = new Vector3(0, -(data.colliderHeight / 2), 0);

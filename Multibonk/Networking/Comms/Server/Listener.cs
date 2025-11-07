@@ -20,14 +20,31 @@ namespace Multibonk.Networking.Comms.Server
 
         public void InternalStart()
         {
-            tcpListener = new TcpListener(IPAddress.Any, port);
+            try
+            {
+                DebugLogger.Log($"Starting server on port {port}...");
+                tcpListener = new TcpListener(IPAddress.Any, port);
 
-            tcpListener.Start();
+                tcpListener.Start();
+                DebugLogger.Log($"Server started successfully on port {port}");
 
+                protocol.ServerStarted();
 
-            protocol.ServerStarted();
-
-            _ = Task.Run(AcceptLoop);
+                _ = Task.Run(AcceptLoop);
+            }
+            catch (SocketException ex)
+            {
+                DebugLogger.Error($"Failed to start server on port {port}");
+                DebugLogger.Error($"Error code: {ex.ErrorCode} - {ex.Message}");
+                DebugLogger.Error($"Port may already be in use or blocked by firewall");
+                throw new Exception($"Server start failed: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                DebugLogger.Error($"Unexpected error starting server: {ex.Message}");
+                DebugLogger.Error($"Stack: {ex.StackTrace}");
+                throw;
+            }
         }
 
         public void Start()
@@ -36,7 +53,16 @@ namespace Multibonk.Networking.Comms.Server
             running = true;
 
             new Thread(() => {
-                InternalStart();
+                try
+                {
+                    InternalStart();
+                }
+                catch (Exception ex)
+                {
+                    DebugLogger.Error($"Server start failed: {ex.Message}");
+                    running = false;
+                    // Don't crash - just log the error
+                }
             }).Start();
         }
 
@@ -52,15 +78,45 @@ namespace Multibonk.Networking.Comms.Server
 
         private Connection CreateConnection(TcpClient client)
         {
-            var connection = new Connection(client);
+            try
+            {
+                var connection = new Connection(client);
 
-            protocol.HandleConnect(connection);
+                protocol.HandleConnect(connection);
 
-            connection.OnMessageReceived += (conn, packet) => protocol.HandleMessage(conn, packet, 0, packet.Length);
+                connection.OnMessageReceived += (conn, packet) =>
+                {
+                    try
+                    {
+                        protocol.HandleMessage(conn, packet, 0, packet.Length);
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLogger.Error($"Error handling message from client: {ex.Message}");
+                        DebugLogger.Error($"Stack: {ex.StackTrace}");
+                    }
+                };
 
-            connection.OnClose += conn => protocol.HandleClose(conn);
+                connection.OnClose += conn =>
+                {
+                    try
+                    {
+                        protocol.HandleClose(conn);
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLogger.Error($"Error handling client disconnect: {ex.Message}");
+                    }
+                };
 
-            return connection;
+                return connection;
+            }
+            catch (Exception ex)
+            {
+                DebugLogger.Error($"Error creating connection: {ex.Message}");
+                DebugLogger.Error($"Stack: {ex.StackTrace}");
+                throw;
+            }
         }
 
         private async Task AcceptLoop()
@@ -70,13 +126,24 @@ namespace Multibonk.Networking.Comms.Server
                 try
                 {
                     var client = await tcpListener.AcceptTcpClientAsync();
+                    DebugLogger.Log($"Client connected from {client.Client.RemoteEndPoint}");
+                    
                     var connection = CreateConnection(client);
-
                     connection.Start();
                 }
                 catch (ObjectDisposedException)
                 {
+                    DebugLogger.Log("Server stopped");
                     break;
+                }
+                catch (Exception ex)
+                {
+                    if (running) // Only log if we're still supposed to be running
+                    {
+                        DebugLogger.Error($"Error accepting client: {ex.Message}");
+                        DebugLogger.Error($"Stack: {ex.StackTrace}");
+                        // Don't break - keep accepting new connections
+                    }
                 }
             }
         }

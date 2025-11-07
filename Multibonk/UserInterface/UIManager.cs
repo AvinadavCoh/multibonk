@@ -106,6 +106,25 @@ namespace Multibonk
             // Refresh Steam tunnel status periodically
             RefreshSteamTunnelStatus();
 
+            // DEBUG: Press F6 to spawn a test network player
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.F6)
+            {
+                if (LobbyPatchFlags.InMultiplayer && Il2CppAssets.Scripts.Actors.Player.MyPlayer.Instance != null)
+                {
+                    var myPos = Il2CppAssets.Scripts.Actors.Player.MyPlayer.Instance.transform.position;
+                    var offset = new UnityEngine.Vector3(2, 0, 0); // Spawn 2 units to the right
+                    var testPos = myPos + offset;
+                    
+                    MelonLogger.Msg("=== SPAWNING TEST NETWORK PLAYER ===");
+                    Game.GameFunctions.SpawnNetworkPlayer(
+                        playerId: 999, 
+                        character: Il2Cpp.ECharacter.Fox, 
+                        position: testPos, 
+                        rotation: UnityEngine.Quaternion.identity
+                    );
+                }
+            }
+
             if (IsShowingMenu) {
                 switch (currentState)
                 {
