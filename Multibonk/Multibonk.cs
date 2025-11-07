@@ -1,4 +1,4 @@
-﻿using MelonLoader;
+using MelonLoader;
 using Multibonk.UserInterface.Window;
 using Microsoft.Extensions.DependencyInjection;
 using Multibonk.Networking.Lobby;

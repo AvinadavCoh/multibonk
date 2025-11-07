@@ -32,7 +32,7 @@ namespace Multibonk.UserInterface.Window
             foreach (var player in lobbyContext.GetPlayers())
             {
                 DrawPlayerHealthBar(player);
-                GUILayout.Space(8);
+                CustomStyles.Space(8);
             }
 
             GUILayout.EndArea();

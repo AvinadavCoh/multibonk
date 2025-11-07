@@ -1,4 +1,4 @@
-﻿using Il2Cpp;
+using Il2Cpp;
 using Il2CppAssets.Scripts.Actors.Player;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using MelonLoader;

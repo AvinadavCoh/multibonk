@@ -1,4 +1,4 @@
-﻿using MelonLoader;
+using MelonLoader;
 using Multibonk.Networking.Lobby;
 using UnityEngine;
 
@@ -26,10 +26,10 @@ namespace Multibonk.UserInterface.Window
             GUILayout.BeginArea(new Rect(rect.x + 10, rect.y + 40, rect.width - 20, rect.height - 50));
 
             GUILayout.Label("Press F5 to hide this menu", CustomStyles.LabelStyle);
-            GUILayout.Space(10);
+            CustomStyles.Space(10);
 
             GUILayout.Label("Connected Players:", CustomStyles.HeaderStyle);
-            GUILayout.Space(5);
+            CustomStyles.Space(5);
 
             foreach (var player in lobby.GetPlayers())
             {
@@ -44,7 +44,7 @@ namespace Multibonk.UserInterface.Window
                 GUILayout.Label($"{player.Ping}ms | {character}", CustomStyles.LabelStyle);
                 GUILayout.EndHorizontal();
                 
-                GUILayout.Space(3);
+                CustomStyles.Space(3);
             }
 
             GUILayout.FlexibleSpace();
@@ -54,7 +54,7 @@ namespace Multibonk.UserInterface.Window
             {
                 OnOptionsClicked?.Invoke();
             }
-            GUILayout.Space(5);
+            CustomStyles.Space(5);
             bool originalState = GUI.enabled;
             GUI.enabled = steamOverlayAvailable;
             if (GUILayout.Button("💬 Steam Friends", CustomStyles.ButtonStyle, GUILayout.Height(30)))
@@ -66,11 +66,11 @@ namespace Multibonk.UserInterface.Window
 
             if (steamTunnelStatus != null && steamTunnelStatus.Length > 0)
             {
-                GUILayout.Space(5);
+                CustomStyles.Space(5);
                 GUILayout.Label(steamTunnelStatus, CustomStyles.LabelStyle);
             }
 
-            GUILayout.Space(10);
+            CustomStyles.Space(10);
 
             if (GUILayout.Button("❌ Leave Lobby", CustomStyles.ButtonStyle, GUILayout.Height(35))) 
                 LeaveLobby();

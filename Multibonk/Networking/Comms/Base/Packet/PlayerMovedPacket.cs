@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 
 namespace Multibonk.Networking.Comms.Base.Packet

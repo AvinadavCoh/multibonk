@@ -1,4 +1,4 @@
-﻿using Il2Cpp;
+using Il2Cpp;
 using Multibonk.Networking.Comms.Base;
 using UnityEngine;
 

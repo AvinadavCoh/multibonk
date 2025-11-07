@@ -1,4 +1,4 @@
-﻿using Il2Cpp;
+using Il2Cpp;
 using Il2CppRewired.Utils;
 using UnityEngine;
 

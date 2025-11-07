@@ -1,4 +1,4 @@
-﻿namespace Multibonk.Networking.Comms
+namespace Multibonk.Networking.Comms
 {
     using System;
     using global::Multibonk.Networking.Comms.Base;

@@ -97,6 +97,14 @@ namespace Multibonk.UserInterface
             _initialized = true;
         }
 
+        /// <summary>
+        /// IL2CPP-safe alternative to CustomStyles.Space() which causes unstripping failures
+        /// </summary>
+        public static void Space(float pixels)
+        {
+            GUILayout.Label("", GUILayout.Height(pixels));
+        }
+
         public static GUIStyle TitleStyle
         {
             get

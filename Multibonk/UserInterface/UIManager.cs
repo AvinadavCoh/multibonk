@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Multibonk.UserInterface.Window;
 using MelonLoader;
 using Multibonk.Networking.Lobby;

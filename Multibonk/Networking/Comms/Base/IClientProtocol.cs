@@ -1,4 +1,4 @@
-﻿namespace Multibonk.Networking.Comms.Base
+namespace Multibonk.Networking.Comms.Base
 {
     public interface IClientProtocol : IProtocol
     {

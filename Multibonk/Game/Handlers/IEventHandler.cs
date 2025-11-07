@@ -1,4 +1,4 @@
-﻿namespace Multibonk.Game.Handlers
+namespace Multibonk.Game.Handlers
 {
     public interface IGameEventHandler { }
 

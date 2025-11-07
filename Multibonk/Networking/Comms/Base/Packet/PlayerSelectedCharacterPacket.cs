@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Multibonk.Networking.Comms.Packet.Base;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 

@@ -67,7 +67,7 @@ namespace Multibonk.UserInterface.Window
             GUILayout.BeginArea(new Rect(rect.x + 15, rect.y + 45, rect.width - 30, rect.height - 60));
 
             GUILayout.Label("Multiplayer Settings", titleStyle);
-            GUILayout.Space(15);
+            CustomStyles.Space(15);
 
             // PvP Section
             DrawToggleSection("Player vs Player (PvP)", 
@@ -75,11 +75,11 @@ namespace Multibonk.UserInterface.Window
                 ref pvpEnabled, 
                 v => Preferences.PvpEnabled.Value = v);
 
-            GUILayout.Space(10);
+            CustomStyles.Space(10);
 
             // Revive Section
             GUILayout.Label("Revive System", sectionTitleStyle);
-            GUILayout.Space(5);
+            CustomStyles.Space(5);
 
             GUILayout.BeginHorizontal();
             bool newReviveEnabled = GUILayout.Toggle(reviveEnabled, " Enable player revives", CustomStyles.LabelStyle);
@@ -92,10 +92,10 @@ namespace Multibonk.UserInterface.Window
 
             if (reviveEnabled)
             {
-                GUILayout.Space(5);
+                CustomStyles.Space(5);
                 GUILayout.Label("Players can revive fallen teammates.", descriptionLabelStyle);
                 
-                GUILayout.Space(5);
+                CustomStyles.Space(5);
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Revive delay (seconds):", CustomStyles.LabelStyle, GUILayout.Width(180));
                 string newInput = GUILayout.TextField(reviveDelayInput, CustomStyles.TextFieldStyle, GUILayout.Width(80));
@@ -120,7 +120,7 @@ namespace Multibonk.UserInterface.Window
                 }
             }
 
-            GUILayout.Space(15);
+            CustomStyles.Space(15);
 
             // Loot Distribution Sections
             DrawDistributionSection("Experience Sharing", ref xpMode, Preferences.SetXpSharingMode,
@@ -128,21 +128,21 @@ namespace Multibonk.UserInterface.Window
                 "Individual: only the collector gains XP.",
                 "Duplicated: each drop spawns for every player.");
 
-            GUILayout.Space(10);
+            CustomStyles.Space(10);
 
             DrawDistributionSection("Gold Sharing", ref goldMode, Preferences.SetGoldSharingMode,
                 "Shared: the team uses one shared wallet.",
                 "Individual: everyone keeps their own gold.",
                 "Duplicated: pickups reward every player equally.");
 
-            GUILayout.Space(10);
+            CustomStyles.Space(10);
 
             DrawDistributionSection("Chest Loot", ref chestMode, Preferences.SetChestSharingMode,
                 "Shared: chest contents go to the team pool.",
                 "Individual: first player to open gets all loot.",
                 "Duplicated: each player receives the full chest loot.");
 
-            GUILayout.Space(15);
+            CustomStyles.Space(15);
 
             // Steam section
             DrawSteamOverlaySection();
@@ -200,7 +200,7 @@ namespace Multibonk.UserInterface.Window
         private void DrawToggleSection(string title, string description, ref bool cache, System.Action<bool> setter)
         {
             GUILayout.Label(title, sectionTitleStyle);
-            GUILayout.Space(5);
+            CustomStyles.Space(5);
 
             bool newValue = GUILayout.Toggle(cache, $" {description}", CustomStyles.LabelStyle);
             if (newValue != cache)
@@ -218,7 +218,7 @@ namespace Multibonk.UserInterface.Window
             string duplicatedDescription)
         {
             GUILayout.Label(title, sectionTitleStyle);
-            GUILayout.Space(5);
+            CustomStyles.Space(5);
 
             var newMode = cache;
 
@@ -226,13 +226,13 @@ namespace Multibonk.UserInterface.Window
                 newMode = Preferences.LootDistributionMode.Shared;
             GUILayout.Label($"   {sharedDescription}", descriptionLabelStyle);
 
-            GUILayout.Space(3);
+            CustomStyles.Space(3);
 
             if (GUILayout.Toggle(cache == Preferences.LootDistributionMode.Individual, " Individual", CustomStyles.LabelStyle))
                 newMode = Preferences.LootDistributionMode.Individual;
             GUILayout.Label($"   {individualDescription}", descriptionLabelStyle);
 
-            GUILayout.Space(3);
+            CustomStyles.Space(3);
 
             if (GUILayout.Toggle(cache == Preferences.LootDistributionMode.Duplicated, " Duplicated", CustomStyles.LabelStyle))
                 newMode = Preferences.LootDistributionMode.Duplicated;

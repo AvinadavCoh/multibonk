@@ -1,4 +1,4 @@
-﻿using Multibonk.Game;
+using Multibonk.Game;
 using Multibonk.Game.Handlers;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;

@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using Multibonk.Networking.Comms.Base;
 
 namespace Multibonk.Networking.Comms.Client

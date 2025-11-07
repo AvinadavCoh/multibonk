@@ -1,4 +1,4 @@
-﻿using MelonLoader;
+using MelonLoader;
 using UnityEngine;
 
 namespace Multibonk.UserInterface.Window
@@ -51,21 +51,21 @@ namespace Multibonk.UserInterface.Window
                 GUILayout.BeginArea(new Rect(rect.x + 10, rect.y + 40, rect.width - 20, rect.height - 50));
 
                 GUILayout.Label("Press F5 to hide/show this menu", CustomStyles.LabelStyle);
-                GUILayout.Space(10);
+                CustomStyles.Space(10);
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Name:", CustomStyles.LabelStyle, GUILayout.Width(60));
                 playerName = GUILayout.TextField(playerName, CustomStyles.TextFieldStyle);
                 GUILayout.EndHorizontal();
 
-                GUILayout.Space(5);
+                CustomStyles.Space(5);
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("IP:Port:", CustomStyles.LabelStyle, GUILayout.Width(60));
                 ipAddress = GUILayout.TextField(ipAddress, CustomStyles.TextFieldStyle);
                 GUILayout.EndHorizontal();
 
-                GUILayout.Space(15);
+                CustomStyles.Space(15);
 
                 if (GUILayout.Button("🖥️ Start Server (Host)", CustomStyles.ButtonStyle, GUILayout.Height(35)))
                 {
@@ -74,7 +74,7 @@ namespace Multibonk.UserInterface.Window
                     OnStartServer();
                 }
 
-                GUILayout.Space(5);
+                CustomStyles.Space(5);
 
                 if (GUILayout.Button("🔌 Connect to Server", CustomStyles.ButtonStyle, GUILayout.Height(35)))
                 {
@@ -83,7 +83,7 @@ namespace Multibonk.UserInterface.Window
                     OnConnect();
                 }
 
-                GUILayout.Space(10);
+                CustomStyles.Space(10);
 
                 // Steam overlay button
                 bool originalState = GUI.enabled;
@@ -97,14 +97,14 @@ namespace Multibonk.UserInterface.Window
                 // Display Steam tunnel status
                 if (steamTunnelStatus != null && steamTunnelStatus.Length > 0)
                 {
-                    GUILayout.Space(5);
+                    CustomStyles.Space(5);
                     GUILayout.Label(steamTunnelStatus, CustomStyles.LabelStyle);
                 }
 
                 // Display connection error
                 if (connectionErrorMessage != null && connectionErrorMessage.Length > 0)
                 {
-                    GUILayout.Space(5);
+                    CustomStyles.Space(5);
                     GUILayout.Label(connectionErrorMessage, errorStyle);
                 }
 

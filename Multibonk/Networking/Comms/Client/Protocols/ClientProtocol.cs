@@ -1,4 +1,4 @@
-﻿using MelonLoader;
+using MelonLoader;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 

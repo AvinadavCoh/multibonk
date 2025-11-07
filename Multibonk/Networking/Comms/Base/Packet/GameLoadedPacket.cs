@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 using UnityEngine;
 
