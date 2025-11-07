@@ -90,100 +90,63 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                     }
                 }
 
-                // Try using Resources.FindObjectsOfTypeAll to find all EnemyData ScriptableObjects
-                var enemyDataType = assembly.GetType("Il2Cpp.EnemyData");
-                if (enemyDataType != null)
+                // Try to get EnemyData from cache (populated by local spawns)
+                var cachedData = Game.Patches.EnemyDataCache.GetEnemyData(packet.EnemyType);
+                
+                if (cachedData != null)
                 {
-                    MelonLogger.Msg($"[Client] Attempting to find EnemyData resources...");
+                    MelonLogger.Msg($"[Client] ✓ Found cached EnemyData for type {packet.EnemyType}!");
                     
-                    // Try to find all EnemyData assets loaded in memory
-                    var resourcesType = typeof(UnityEngine.Resources);
-                    var findMethod = resourcesType.GetMethod("FindObjectsOfTypeAll");
-                    if (findMethod != null)
+                    // Find the SpawnEnemy method with 6 parameters
+                    var enemyFlagType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EEnemyFlag");
+                    
+                    var allSpawnMethods = enemyManagerType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                        .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
+                        .ToList();
+                    
+                    if (allSpawnMethods.Count > 0)
                     {
-                        var genericMethod = findMethod.MakeGenericMethod(enemyDataType);
-                        var allEnemyData = genericMethod.Invoke(null, null) as System.Array;
+                        var spawnMethod = allSpawnMethods[0];
+                        var noneFlag = System.Enum.ToObject(enemyFlagType, 0);
+                    
+                        var parameters = new object[] { cachedData, packet.Position, packet.Level, false, noneFlag, true };
+                    
+                        // Set flag to allow network spawn (bypasses Prefix blocking)
+                        Game.Patches.EnemySyncPatches.EnemyManagerSpawnEnemyPatch.AllowNetworkSpawn = true;
                         
-                        if (allEnemyData != null && allEnemyData.Length > 0)
+                        try
                         {
-                            MelonLogger.Msg($"[Client] Found {allEnemyData.Length} EnemyData objects in memory");
-                            
-                            // Try to find matching enemy by enemyName enum (EEnemy type)
-                            foreach (var data in allEnemyData)
+                            DebugLogger.Log($"[Client] Invoking SpawnEnemy with cached data: Type={packet.EnemyType}, Pos=({packet.Position.x}, {packet.Position.y}, {packet.Position.z}), Level={packet.Level}");
+                            var spawnedEnemy = spawnMethod.Invoke(enemyManager, parameters);
+                        
+                            if (spawnedEnemy != null)
                             {
-                                // Look for enemyName property (EEnemy enum type)
-                                var enemyNameProp = enemyDataType.GetProperty("enemyName");
+                                MelonLogger.Msg($"[Client] ✓ Successfully spawned enemy at ({packet.Position.x:F2}, {packet.Position.y:F2}, {packet.Position.z:F2})");
                                 
-                                if (enemyNameProp != null)
-                                {
-                                    var enemyNameValue = enemyNameProp.GetValue(data);
-                                    
-                                    if (enemyNameValue != null)
-                                    {
-                                        int enumIntValue = (int)enemyNameValue;
-                                        DebugLogger.Log($"[Client] Checking EnemyData: enemyName enum value = {enemyNameValue} (int: {enumIntValue})");
-                                        
-                                        if (enumIntValue == packet.EnemyType)
-                                        {
-                                            MelonLogger.Msg($"[Client] ✓ Found matching EnemyData for type {packet.EnemyType} (enemyName: {enemyNameValue})!");
-                                        
-                                            // Find the SpawnEnemy method with 6 parameters (avoiding ambiguity)
-                                            var enemyFlagType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EEnemyFlag");
-                                            
-                                            var allSpawnMethods = enemyManagerType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                                                .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
-                                                .ToList();
-                                            
-                                            DebugLogger.Log($"[Client] Found {allSpawnMethods.Count} SpawnEnemy methods with 6 parameters");
-                                            
-                                            if (allSpawnMethods.Count > 0)
-                                            {
-                                                var spawnMethod = allSpawnMethods[0]; // Use the first one
-                                                var noneFlag = System.Enum.ToObject(enemyFlagType, 0); // EEnemyFlag.None = 0
-                                            
-                                                var parameters = new object[] { data, packet.Position, packet.Level, false, noneFlag, true };
-                                            
-                                                DebugLogger.Log($"[Client] Invoking SpawnEnemy with: EnemyType={packet.EnemyType}, Pos=({packet.Position.x}, {packet.Position.y}, {packet.Position.z}), Level={packet.Level}");
-                                                var spawnedEnemy = spawnMethod.Invoke(enemyManager, parameters);
-                                            
-                                                if (spawnedEnemy != null)
-                                                {
-                                                    DebugLogger.Log($"[Client] ✓ Successfully spawned enemy at ({packet.Position.x:F2}, {packet.Position.y:F2}, {packet.Position.z:F2})");
-                                                }
-                                                else
-                                                {
-                                                    DebugLogger.Warning($"[Client] SpawnEnemy returned null");
-                                                }
-                                                return;
-                                            }
-                                            else
-                                            {
-                                                DebugLogger.Error($"[Client] Could not find SpawnEnemy method with 6 parameters on EnemyManager");
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    DebugLogger.Warning($"[Client] Could not find enemyName property on EnemyData");
-                                }
+                                // Register enemy ID mapping (client instance → host ID)
+                                Game.Patches.EnemyIdMapper.RegisterMapping(spawnedEnemy, packet.EnemyId);
                             }
-                            
-                            DebugLogger.Warning($"[Client] Could not find EnemyData with enemyName enum value {packet.EnemyType}");
+                            else
+                            {
+                                DebugLogger.Warning($"[Client] SpawnEnemy returned null");
+                            }
                         }
-                        else
+                        finally
                         {
-                            DebugLogger.Warning("[Client] No EnemyData objects found in memory");
+                            // Always reset flag after spawn attempt
+                            Game.Patches.EnemySyncPatches.EnemyManagerSpawnEnemyPatch.AllowNetworkSpawn = false;
                         }
+                        return;
                     }
                     else
                     {
-                        DebugLogger.Error("[Client] Could not find Resources.FindObjectsOfTypeAll method");
+                        DebugLogger.Error($"[Client] Could not find SpawnEnemy method");
                     }
                 }
                 else
                 {
-                    DebugLogger.Error("[Client] Could not find EnemyData type");
+                    DebugLogger.Warning($"[Client] No cached EnemyData for type {packet.EnemyType}. Cache has {Game.Patches.EnemyDataCache.Count} entries.");
+                    DebugLogger.Warning($"[Client] Waiting for at least one local enemy spawn to populate cache...");
                 }
 
                 // Fallback: just log the packet

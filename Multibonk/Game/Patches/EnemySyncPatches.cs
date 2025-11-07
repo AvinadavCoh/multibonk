@@ -75,16 +75,27 @@ namespace Multibonk.Game.Patches
 
             static void Postfix(object __instance)
             {
-                // Only host broadcasts health changes
-                if (!LobbyPatchFlags.IsHosting || !LobbyPatchFlags.InMultiplayer)
+                // Skip if not in multiplayer
+                if (!LobbyPatchFlags.InMultiplayer)
                     return;
 
                 try
                 {
                     var enemyType = __instance.GetType();
                     
-                    // Get enemy ID (use instance hash code)
-                    string enemyId = __instance.GetHashCode().ToString();
+                    // Get enemy ID
+                    // For clients: use mapped host ID if available
+                    // For host: use instance hash code
+                    int enemyId;
+                    if (LobbyPatchFlags.IsHosting)
+                    {
+                        enemyId = __instance.GetHashCode();
+                    }
+                    else
+                    {
+                        // Client: get mapped host ID
+                        enemyId = EnemyIdMapper.GetHostId(__instance);
+                    }
                     
                     // Get current HP
                     var hpProp = enemyType.GetProperty("hp");
@@ -96,11 +107,8 @@ namespace Multibonk.Game.Patches
                     if (maxHpField == null) return;
                     float maxHp = (float)maxHpField.GetValue(__instance);
 
-                    // Only broadcast if HP changed significantly (10% threshold to reduce spam)
-                    float hpPercent = currentHp / maxHp;
-                    
-                    // Broadcast health changes
-                    GameEvents.TriggerEnemyHealthChanged(enemyId, currentHp, maxHp);
+                    // Broadcast health changes (both host and client)
+                    GameEvents.TriggerEnemyHealthChanged(enemyId.ToString(), currentHp, maxHp);
                 }
                 catch (System.Exception ex)
                 {
@@ -186,23 +194,36 @@ namespace Multibonk.Game.Patches
 
             static void Postfix(object __instance)
             {
-                // Only host broadcasts deaths
-                if (!LobbyPatchFlags.IsHosting || !LobbyPatchFlags.InMultiplayer)
+                // Skip if not in multiplayer
+                if (!LobbyPatchFlags.InMultiplayer)
                     return;
 
                 try
                 {
                     // Get enemy ID
-                    string enemyId = __instance.GetHashCode().ToString();
+                    // For clients: use mapped host ID if available
+                    // For host: use instance hash code
+                    string enemyId;
+                    if (LobbyPatchFlags.IsHosting)
+                    {
+                        enemyId = __instance.GetHashCode().ToString();
+                    }
+                    else
+                    {
+                        // Client: get mapped host ID and cleanup mapping
+                        int hostId = EnemyIdMapper.GetHostId(__instance);
+                        enemyId = hostId.ToString();
+                        EnemyIdMapper.RemoveMapping(__instance);
+                    }
                     
-                    MelonLogger.Msg($"[Host] Enemy died: {enemyId}");
+                    MelonLogger.Msg($"[{(LobbyPatchFlags.IsHosting ? "Host" : "Client")}] Enemy died: {enemyId}");
                     
-                    // Trigger death event
+                    // Trigger death event (both host and client broadcast)
                     GameEvents.TriggerEnemyDie(enemyId);
                 }
                 catch (System.Exception ex)
                 {
-                    MelonLogger.Error($"Error in EnemyDiedPatch: {ex.Message}");
+                    MelonLogger.Error($"Error in EnemyKillPatch: {ex.Message}");
                 }
             }
         }
@@ -215,8 +236,14 @@ namespace Multibonk.Game.Patches
         /// The method signature is: SpawnEnemy(EnemyData, Vector3, int, bool, EEnemyFlag, bool)
         /// </summary>
         [HarmonyPatch]
-        class EnemyManagerSpawnEnemyPatch
+        public class EnemyManagerSpawnEnemyPatch
         {
+            /// <summary>
+            /// When true, allows client to spawn enemies from network packets
+            /// This bypasses the normal client spawn blocking
+            /// </summary>
+            public static bool AllowNetworkSpawn = false;
+
             static bool Prepare()
             {
                 // Check if we can find the target method
@@ -283,6 +310,13 @@ namespace Multibonk.Game.Patches
 
             static bool Prefix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn)
             {
+                // Allow network-initiated spawns to bypass blocking
+                if (AllowNetworkSpawn)
+                {
+                    DebugLogger.Log($"[Client] Allowing network-initiated enemy spawn");
+                    return true; // Allow this spawn (from network packet)
+                }
+
                 // If in multiplayer as a client, block the spawn (will receive from host)
                 if (LobbyPatchFlags.InMultiplayer && !LobbyPatchFlags.IsHosting)
                 {
@@ -308,6 +342,29 @@ namespace Multibonk.Game.Patches
             static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object __result)
             {
                 DebugLogger.Log($"[EnemySpawnPatch] Postfix called: IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}, Result={__result != null}");
+                
+                try
+                {
+                    // Cache EnemyData for client spawning (works on both host and client)
+                    if (enemyData != null)
+                    {
+                        var enemyNameField = enemyData.GetType().GetProperty("enemyName");
+                        if (enemyNameField != null)
+                        {
+                            var enemyEnumValue = enemyNameField.GetValue(enemyData);
+                            if (enemyEnumValue != null)
+                            {
+                                int enemyType = (int)enemyEnumValue;
+                                EnemyDataCache.CacheEnemyData(enemyType, enemyData);
+                                DebugLogger.Log($"[EnemySpawnPatch] Cached EnemyData for type {enemyType}");
+                            }
+                        }
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    DebugLogger.Warning($"[EnemySpawnPatch] Failed to cache EnemyData: {ex.Message}");
+                }
                 
                 // Only host broadcasts spawns
                 if (!LobbyPatchFlags.IsHosting)
