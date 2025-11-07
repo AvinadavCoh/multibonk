@@ -46,13 +46,15 @@
 - Player movement/rotation sync
 - Player damage/death sync
 - Character selection sync
+- Enemy cache preloader (loads all enemy types at game start)
 
 ### ⚠️ Partial
 - Boss synchronization (spawning works, but flag detection doesn't)
-- Enemy type coverage (only cached types can spawn on client)
 - Chest/Shrine sync (handlers implemented, needs testing)
+- Gold sync (infrastructure complete, needs dnSpy for method names)
+- Wave progression sync (infrastructure complete, needs dnSpy for method names)
 
 ### ❌ Not Implemented
-- Wave progression sync
-- Item/loot synchronization
+- Item/loot synchronization (needs dnSpy investigation)
 - Minimap sync (infrastructure exists, needs validation)
+- Boss interactable spawner sync (infrastructure exists, needs testing)

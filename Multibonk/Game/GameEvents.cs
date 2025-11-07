@@ -34,6 +34,10 @@ namespace Multibonk.Game
 
         public static event Action<int> PlayerLevelUpEvent; // newLevel
         public static event Action<int> PlayerXpGainedEvent; // xpAmount
+        public static event Action<int> PlayerGoldGainedEvent; // goldAmount
+
+        public static event Action<int> WaveStartEvent; // waveNumber
+        public static event Action<int> WaveCompleteEvent; // waveNumber
 
         public static event Action<int, int> MapTileRevealedEvent; // tileX, tileY
 
@@ -75,6 +79,21 @@ namespace Multibonk.Game
         public static void TriggerPlayerXpGained(int xpAmount)
         {
             PlayerXpGainedEvent?.Invoke(xpAmount);
+        }
+
+        public static void TriggerPlayerGoldGained(int goldAmount)
+        {
+            PlayerGoldGainedEvent?.Invoke(goldAmount);
+        }
+
+        public static void TriggerWaveStart(int waveNumber)
+        {
+            WaveStartEvent?.Invoke(waveNumber);
+        }
+
+        public static void TriggerWaveComplete(int waveNumber)
+        {
+            WaveCompleteEvent?.Invoke(waveNumber);
         }
 
         public static void TriggerSpawnDrop(string itemId, Vector3 position, int itemType)

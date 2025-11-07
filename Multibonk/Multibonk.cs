@@ -60,6 +60,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, StartGameEventHandler>();
             services.AddSingleton<IGameEventHandler, UpdateNetworkPlayerAnimationsEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerXpEventHandler>();
+            services.AddSingleton<IGameEventHandler, PlayerGoldEventHandler>();
             services.AddSingleton<IGameEventHandler, ItemDropEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemySyncEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemySpawnedEventHandler>();
@@ -68,6 +69,8 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, ShrineUseEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerDamageEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerDeathEventHandler>();
+            services.AddSingleton<IGameEventHandler, WaveStartEventHandler>();
+            services.AddSingleton<IGameEventHandler, WaveCompleteEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
@@ -87,6 +90,7 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, PlayerMovedPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerRotatedPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerXpGainedPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, PlayerGoldGainedPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerLevelUpPacketHandler>();
             services.AddSingleton<IClientPacketHandler, ItemDroppedPacketHandler>();
             services.AddSingleton<IClientPacketHandler, ItemPickedUpPacketHandler>();
@@ -99,6 +103,8 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, ShrineUsePacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerDamagePacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerDeathPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, WaveStartPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, WaveCompletePacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();

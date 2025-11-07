@@ -25,6 +25,9 @@ namespace Multibonk.Networking.Comms.Base
        SHRINE_USE = 19,
        PLAYER_DAMAGE = 20,
        PLAYER_DEATH = 21,
+       PLAYER_GOLD_GAINED = 22,
+       WAVE_START = 23,
+       WAVE_COMPLETE = 24,
     }
 
     public enum ClientSentPacketId : byte
