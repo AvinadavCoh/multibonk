@@ -40,57 +40,84 @@ namespace Multibonk.Game
         /// <param name="rotation">Spawn rotation</param>
         public static void SpawnNetworkPlayer(ushort playerId, ECharacter character, Vector3 position, Quaternion rotation)
         {
-            DebugLogger.LogSpawn($"Starting spawn for player {playerId}, character: {character}");
-
-            // Check if character data is initialized
-            if (!GamePatchFlags.CharacterDataInitialized || GamePatchFlags.CharacterData == null || GamePatchFlags.CharacterData.Count == 0)
+            try
             {
-                DebugLogger.Error("Character data not initialized! Attempting to initialize...");
-                GetCharacterDataFromMainMenu();
-            }
+                DebugLogger.LogSpawn($"Starting spawn for player {playerId}, character: {character}");
 
-            var data = GamePatchFlags.CharacterData.Find(data => data.eCharacter == character);
-            if (data == null)
-            {
-                DebugLogger.Error($"Could not find character data for {character}!");
-                return;
-            }
-
-            DebugLogger.LogSpawn($"Found character data for {character}");
-
-            // Check if player already exists
-            if (GamePatchFlags.PlayersCache.ContainsKey(playerId))
-            {
-                DebugLogger.Warning($"Player {playerId} already exists! Removing old instance...");
-                var oldPlayer = GamePatchFlags.PlayersCache[playerId];
-                if (oldPlayer != null && oldPlayer.PlayerObject != null)
+                // Check if character data is initialized
+                if (!GamePatchFlags.CharacterDataInitialized || GamePatchFlags.CharacterData == null || GamePatchFlags.CharacterData.Count == 0)
                 {
-                    UnityEngine.Object.Destroy(oldPlayer.PlayerObject);
+                    DebugLogger.Error("Character data not initialized! Attempting to initialize...");
+                    GetCharacterDataFromMainMenu();
                 }
-                GamePatchFlags.PlayersCache.Remove(playerId);
+
+                var data = GamePatchFlags.CharacterData.Find(data => data.eCharacter == character);
+                if (data == null)
+                {
+                    DebugLogger.Error($"Could not find character data for {character}!");
+                    return;
+                }
+
+                DebugLogger.LogSpawn($"Found character data for {character}");
+
+                // Check if player already exists
+                if (GamePatchFlags.PlayersCache.ContainsKey(playerId))
+                {
+                    DebugLogger.Warning($"Player {playerId} already exists! Removing old instance...");
+                    var oldPlayer = GamePatchFlags.PlayersCache[playerId];
+                    if (oldPlayer != null && oldPlayer.PlayerObject != null)
+                    {
+                        UnityEngine.Object.Destroy(oldPlayer.PlayerObject);
+                    }
+                    GamePatchFlags.PlayersCache.Remove(playerId);
+                }
+
+                var player = new GameObject("player-from-id-" + playerId.ToString());
+                player.transform.position = position;
+                player.transform.rotation = rotation;
+
+                DebugLogger.LogSpawn($"Created GameObject at position ({position.x}, {position.y}, {position.z})");
+
+                var rendererContainer = new GameObject("NetworkPlayer");
+                rendererContainer.transform.SetParent(player.transform);
+
+                var renderer = rendererContainer.AddComponent<PlayerRenderer>();
+
+                // Network players don't need a functional inventory, just visual rendering
+                // Try to create inventory, but use null if it fails (visual-only mode)
+                PlayerInventory inv = null;
+                try
+                {
+                    DebugLogger.LogSpawn($"Attempting to create PlayerInventory with ignoreShopItems=true");
+                    inv = new PlayerInventory(data, ignoreShopItems: true);
+                    DebugLogger.LogSpawn($"PlayerInventory created successfully");
+                }
+                catch (Exception invEx)
+                {
+                    DebugLogger.Warning($"Failed to create PlayerInventory (will use visual-only mode): {invEx.Message}");
+                    inv = null;
+                }
+                
+                renderer.SetCharacter(data, inv, position);
+                renderer.CreateMaterials(4);
+
+                rendererContainer.transform.localPosition = new Vector3(0, -(data.colliderHeight / 2), 0);
+                rendererContainer.transform.localRotation = Quaternion.identity;
+
+                GamePatchFlags.PlayersCache.Add(playerId, new SpawnedNetworkPlayer(player));
+
+                DebugLogger.LogSpawn($"Successfully spawned player {playerId}! Total players cached: {GamePatchFlags.PlayersCache.Count}");
             }
-
-            var player = new GameObject("player-from-id-" + playerId.ToString());
-            player.transform.position = position;
-            player.transform.rotation = rotation;
-
-            DebugLogger.LogSpawn($"Created GameObject at position ({position.x}, {position.y}, {position.z})");
-
-            var rendererContainer = new GameObject("NetworkPlayer");
-            rendererContainer.transform.SetParent(player.transform);
-
-            var renderer = rendererContainer.AddComponent<PlayerRenderer>();
-
-            var inv = new PlayerInventory(data, ignoreShopItems: true);
-            renderer.SetCharacter(data, inv, position);
-            renderer.CreateMaterials(4);
-
-            rendererContainer.transform.localPosition = new Vector3(0, -(data.colliderHeight / 2), 0);
-            rendererContainer.transform.localRotation = Quaternion.identity;
-
-            GamePatchFlags.PlayersCache.Add(playerId, new SpawnedNetworkPlayer(player));
-
-            DebugLogger.LogSpawn($"Successfully spawned player {playerId}! Total players cached: {GamePatchFlags.PlayersCache.Count}");
+            catch (Exception ex)
+            {
+                DebugLogger.Error($"CRITICAL ERROR spawning player {playerId}: {ex.GetType().Name}");
+                DebugLogger.Error($"Message: {ex.Message}");
+                DebugLogger.Error($"Stack: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    DebugLogger.Error($"Inner: {ex.InnerException.Message}");
+                }
+            }
         }
     }
 
