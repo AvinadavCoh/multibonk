@@ -81,7 +81,7 @@ namespace Multibonk.Game
 
             var renderer = rendererContainer.AddComponent<PlayerRenderer>();
 
-            var inv = new PlayerInventory(data);
+            var inv = new PlayerInventory(data, ignoreShopItems: true);
             renderer.SetCharacter(data, inv, position);
             renderer.CreateMaterials(4);
 
