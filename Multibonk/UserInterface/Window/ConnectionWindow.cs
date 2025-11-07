@@ -120,6 +120,19 @@ namespace Multibonk.UserInterface.Window
                 }
                 currentY += 15;
 
+                // Show My IP button
+                if (GUI.Button(new Rect(x, currentY, width / 2 - 2, 30), "📍 Show My IP", CustomStyles.ButtonStyle))
+                {
+                    ShowMyIP();
+                }
+                
+                // Test Connection button
+                if (GUI.Button(new Rect(x + width / 2 + 2, currentY, width / 2 - 2, 30), "🔍 Test IP", CustomStyles.ButtonStyle))
+                {
+                    TestConnection();
+                }
+                currentY += 35;
+
                 // Start Server button
                 if (GUI.Button(new Rect(x, currentY, width, 35), "🖥️ Start Server (Host)", CustomStyles.ButtonStyle))
                 {
@@ -177,6 +190,61 @@ namespace Multibonk.UserInterface.Window
 
         private void OnStartServer() => OnStartServerClicked?.Invoke(new ConnectionWindowEventArgs(playerName, ipAddress));
         private void OnConnect() => OnConnectClicked?.Invoke(new ConnectionWindowEventArgs(playerName, ipAddress));
+
+        private void ShowMyIP()
+        {
+            try
+            {
+                var localIP = Networking.NetworkDiagnostics.GetLocalIPAddress();
+                DebugLogger.Log($"========================================");
+                DebugLogger.Log($"YOUR IP ADDRESS: {localIP}:25565");
+                DebugLogger.Log($"========================================");
+                DebugLogger.Log($"Share this with other players so they can connect to you!");
+                SetConnectionError($"Your IP: {localIP}:25565");
+            }
+            catch (System.Exception ex)
+            {
+                DebugLogger.Error($"Failed to get IP: {ex.Message}");
+                SetConnectionError("Failed to get IP");
+            }
+        }
+
+        private void TestConnection()
+        {
+            try
+            {
+                // Parse IP and port
+                string host = ipAddress;
+                int port = 25565;
+
+                if (ipAddress.Contains(":"))
+                {
+                    var parts = ipAddress.Split(':');
+                    host = parts[0];
+                    if (parts.Length > 1 && int.TryParse(parts[1], out int parsedPort))
+                    {
+                        port = parsedPort;
+                    }
+                }
+
+                // Show local IP first
+                var localIP = Networking.NetworkDiagnostics.GetLocalIPAddress();
+                DebugLogger.Log($"Your local IP address is: {localIP}");
+                SetConnectionError($"Your IP: {localIP}");
+
+                // Run diagnostics in background thread
+                new System.Threading.Thread(() =>
+                {
+                    var result = Networking.NetworkDiagnostics.RunDiagnostics(host, port);
+                    SetConnectionError(result);
+                }).Start();
+            }
+            catch (System.Exception ex)
+            {
+                DebugLogger.Error($"Test connection error: {ex.Message}");
+                SetConnectionError($"Test failed: {ex.Message}");
+            }
+        }
 
         public void SetSteamOverlayAvailability(bool available) => steamOverlayAvailable = available;
         public void SetSteamTunnelStatus(string status) => steamTunnelStatus = status;

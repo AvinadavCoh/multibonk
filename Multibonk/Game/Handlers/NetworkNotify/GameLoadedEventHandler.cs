@@ -23,6 +23,10 @@ namespace Multibonk.Game.Handlers.NetworkNotify
 
             GameEvents.GameLoadedEvent += () =>
             {
+                // Clean up any existing network players from previous games
+                DebugLogger.Log("=== GAME LOADED - CLEANING UP OLD PLAYERS ===");
+                GameFunctions.CleanupAllNetworkPlayers();
+                
                 // CLIENT: Send position to host
                 if (!LobbyPatchFlags.IsHosting && lobbyContext.State == LobbyState.Connected)
                 {

@@ -307,13 +307,18 @@ namespace Multibonk.Game.Patches
 
             static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object __result)
             {
+                DebugLogger.Log($"[EnemySpawnPatch] Postfix called: IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}, Result={__result != null}");
+                
                 // Only host broadcasts spawns
                 if (!LobbyPatchFlags.IsHosting)
+                {
+                    DebugLogger.Log($"[EnemySpawnPatch] Not hosting, skipping broadcast");
                     return;
+                }
 
                 if (__result == null)
                 {
-                    DebugLogger.Log($"[Host] Enemy spawn failed, not broadcasting");
+                    DebugLogger.Warning($"[EnemySpawnPatch] Enemy spawn returned null, not broadcasting");
                     return;
                 }
 
@@ -322,18 +327,32 @@ namespace Multibonk.Game.Patches
                     // Get enemy instance ID for tracking
                     int enemyId = __result != null ? __result.GetHashCode() : 0;
                     
-                    // Get enemy type from EnemyData
-                    var typeField = enemyData?.GetType().GetProperty("Type");
-                    int enemyType = typeField != null ? (int)typeField.GetValue(enemyData) : 0;
+                    // Get enemy type from EnemyData.enemyName (EEnemy enum)
+                    var enemyNameField = enemyData?.GetType().GetProperty("enemyName");
+                    int enemyType = 0;
+                    
+                    if (enemyNameField != null)
+                    {
+                        var enemyEnumValue = enemyNameField.GetValue(enemyData);
+                        enemyType = enemyEnumValue != null ? (int)enemyEnumValue : 0;
+                        DebugLogger.Log($"[EnemySpawnPatch] Found enemyName enum: {enemyEnumValue} (int value: {enemyType})");
+                    }
+                    else
+                    {
+                        DebugLogger.Warning($"[EnemySpawnPatch] Could not find enemyName property on EnemyData");
+                    }
 
-                    DebugLogger.Log($"[Host] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z})");
+                    DebugLogger.Log($"[EnemySpawnPatch] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z}), Wave={waveNumber}");
                     
                     // Trigger event to broadcast spawn to clients
                     GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, waveNumber, forceSpawn);
+                    
+                    DebugLogger.Log($"[EnemySpawnPatch] TriggerEnemySpawned called successfully");
                 }
                 catch (System.Exception ex)
                 {
-                    MelonLogger.Error($"[Host] Failed to broadcast enemy spawn: {ex.Message}");
+                    DebugLogger.Error($"[EnemySpawnPatch] Failed to broadcast enemy spawn: {ex.Message}");
+                    DebugLogger.Error($"Stack: {ex.StackTrace}");
                 }
             }
         }

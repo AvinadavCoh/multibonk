@@ -5,6 +5,7 @@ using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 using UnityEngine;
+using System.Linq;
 
 namespace Multibonk.Networking.Comms.Client.Handlers
 {
@@ -23,6 +24,15 @@ namespace Multibonk.Networking.Comms.Client.Handlers
             DebugLogger.Log($"[Client] Received enemy spawn: ID={packet.EnemyId}, Type={packet.EnemyType}, Level={packet.Level}, IsBoss={packet.IsBoss}");
             DebugLogger.Log($"[Client] Spawn position: ({packet.Position.x}, {packet.Position.y}, {packet.Position.z})");
 
+            // Spawn on main game thread
+            Game.Handlers.GameDispatcher.Enqueue(() =>
+            {
+                SpawnEnemyOnClient(packet);
+            });
+        }
+
+        private void SpawnEnemyOnClient(EnemySpawnPacket packet)
+        {
             try
             {
                 // Find the Assembly-CSharp
@@ -31,7 +41,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("[Client] Could not find Assembly-CSharp");
+                    DebugLogger.Error("[Client] Could not find Assembly-CSharp");
                     return;
                 }
 
@@ -39,7 +49,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 var enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Managers.EnemyManager");
                 if (enemyManagerType == null)
                 {
-                    MelonLogger.Warning("[Client] Could not find EnemyManager type");
+                    DebugLogger.Error("[Client] Could not find EnemyManager type");
                     return;
                 }
 
@@ -47,14 +57,14 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 var instanceProp = enemyManagerType.GetProperty("Instance", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                 if (instanceProp == null)
                 {
-                    MelonLogger.Warning("[Client] Could not find EnemyManager.Instance property");
+                    DebugLogger.Error("[Client] Could not find EnemyManager.Instance property");
                     return;
                 }
 
                 var enemyManager = instanceProp.GetValue(null);
                 if (enemyManager == null)
                 {
-                    MelonLogger.Warning("[Client] EnemyManager.Instance is null - game not loaded yet");
+                    DebugLogger.Error("[Client] EnemyManager.Instance is null - game not loaded yet");
                     return;
                 }
 
@@ -81,7 +91,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 }
 
                 // Try using Resources.FindObjectsOfTypeAll to find all EnemyData ScriptableObjects
-                var enemyDataType = assembly.GetType("EnemyData");
+                var enemyDataType = assembly.GetType("Il2Cpp.EnemyData");
                 if (enemyDataType != null)
                 {
                     MelonLogger.Msg($"[Client] Attempting to find EnemyData resources...");
@@ -98,66 +108,91 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                         {
                             MelonLogger.Msg($"[Client] Found {allEnemyData.Length} EnemyData objects in memory");
                             
-                            // Try to find matching enemy by type
+                            // Try to find matching enemy by enemyName enum (EEnemy type)
                             foreach (var data in allEnemyData)
                             {
-                                var typeFieldInfo = enemyDataType.GetField("Type");
-                                var typePropInfo = enemyDataType.GetProperty("Type");
+                                // Look for enemyName property (EEnemy enum type)
+                                var enemyNameProp = enemyDataType.GetProperty("enemyName");
                                 
-                                if (typeFieldInfo != null || typePropInfo != null)
+                                if (enemyNameProp != null)
                                 {
-                                    object typeValue = null;
-                                    if (typeFieldInfo != null)
-                                        typeValue = typeFieldInfo.GetValue(data);
-                                    else if (typePropInfo != null)
-                                        typeValue = typePropInfo.GetValue(data);
-                                        
-                                    if (typeValue != null && (int)typeValue == packet.EnemyType)
+                                    var enemyNameValue = enemyNameProp.GetValue(data);
+                                    
+                                    if (enemyNameValue != null)
                                     {
-                                        MelonLogger.Msg($"[Client] Found matching EnemyData for type {packet.EnemyType}!");
+                                        int enumIntValue = (int)enemyNameValue;
+                                        DebugLogger.Log($"[Client] Checking EnemyData: enemyName enum value = {enemyNameValue} (int: {enumIntValue})");
                                         
-                                        // Spawn the enemy with the found EnemyData
-                                        var spawnMethod = enemyManagerType.GetMethod("SpawnEnemy", new[]
+                                        if (enumIntValue == packet.EnemyType)
                                         {
-                                            enemyDataType,
-                                            typeof(Vector3),
-                                            typeof(int),
-                                            typeof(bool),
-                                            assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EEnemyFlag"),
-                                            typeof(bool)
-                                        });
+                                            MelonLogger.Msg($"[Client] ✓ Found matching EnemyData for type {packet.EnemyType} (enemyName: {enemyNameValue})!");
                                         
-                                        if (spawnMethod != null)
-                                        {
+                                            // Find the SpawnEnemy method with 6 parameters (avoiding ambiguity)
                                             var enemyFlagType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EEnemyFlag");
-                                            var noneFlag = System.Enum.ToObject(enemyFlagType, 0); // EEnemyFlag.None = 0
                                             
-                                            var parameters = new object[] { data, packet.Position, packet.Level, false, noneFlag, true };
-                                            var spawnedEnemy = spawnMethod.Invoke(enemyManager, parameters);
+                                            var allSpawnMethods = enemyManagerType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                                                .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
+                                                .ToList();
                                             
-                                            MelonLogger.Msg($"[Client] Successfully spawned enemy at ({packet.Position.x:F2}, {packet.Position.y:F2}, {packet.Position.z:F2})");
-                                            return;
+                                            DebugLogger.Log($"[Client] Found {allSpawnMethods.Count} SpawnEnemy methods with 6 parameters");
+                                            
+                                            if (allSpawnMethods.Count > 0)
+                                            {
+                                                var spawnMethod = allSpawnMethods[0]; // Use the first one
+                                                var noneFlag = System.Enum.ToObject(enemyFlagType, 0); // EEnemyFlag.None = 0
+                                            
+                                                var parameters = new object[] { data, packet.Position, packet.Level, false, noneFlag, true };
+                                            
+                                                DebugLogger.Log($"[Client] Invoking SpawnEnemy with: EnemyType={packet.EnemyType}, Pos=({packet.Position.x}, {packet.Position.y}, {packet.Position.z}), Level={packet.Level}");
+                                                var spawnedEnemy = spawnMethod.Invoke(enemyManager, parameters);
+                                            
+                                                if (spawnedEnemy != null)
+                                                {
+                                                    DebugLogger.Log($"[Client] ✓ Successfully spawned enemy at ({packet.Position.x:F2}, {packet.Position.y:F2}, {packet.Position.z:F2})");
+                                                }
+                                                else
+                                                {
+                                                    DebugLogger.Warning($"[Client] SpawnEnemy returned null");
+                                                }
+                                                return;
+                                            }
+                                            else
+                                            {
+                                                DebugLogger.Error($"[Client] Could not find SpawnEnemy method with 6 parameters on EnemyManager");
+                                            }
                                         }
                                     }
                                 }
+                                else
+                                {
+                                    DebugLogger.Warning($"[Client] Could not find enemyName property on EnemyData");
+                                }
                             }
                             
-                            MelonLogger.Warning($"[Client] Could not find EnemyData for type {packet.EnemyType}");
+                            DebugLogger.Warning($"[Client] Could not find EnemyData with enemyName enum value {packet.EnemyType}");
                         }
                         else
                         {
-                            MelonLogger.Warning("[Client] No EnemyData objects found in memory");
+                            DebugLogger.Warning("[Client] No EnemyData objects found in memory");
                         }
                     }
+                    else
+                    {
+                        DebugLogger.Error("[Client] Could not find Resources.FindObjectsOfTypeAll method");
+                    }
+                }
+                else
+                {
+                    DebugLogger.Error("[Client] Could not find EnemyData type");
                 }
 
                 // Fallback: just log the packet
-                MelonLogger.Msg($"[Client] Enemy spawn packet received but could not spawn: Type={packet.EnemyType}, Pos=({packet.Position.x:F2}, {packet.Position.y:F2}, {packet.Position.z:F2}), Level={packet.Level}");
+                DebugLogger.Warning($"[Client] Enemy spawn packet received but could not spawn: Type={packet.EnemyType}, Pos=({packet.Position.x:F2}, {packet.Position.y:F2}, {packet.Position.z:F2}), Level={packet.Level}");
             }
             catch (System.Exception ex)
             {
-                MelonLogger.Error($"[Client] Failed to handle enemy spawn: {ex.Message}");
-                MelonLogger.Error($"Stack trace: {ex.StackTrace}");
+                DebugLogger.Error($"[Client] Failed to handle enemy spawn: {ex.Message}");
+                DebugLogger.Error($"Stack trace: {ex.StackTrace}");
             }
         }
     }

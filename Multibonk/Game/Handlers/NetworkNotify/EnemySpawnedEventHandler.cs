@@ -22,10 +22,17 @@ namespace Multibonk.Game.Handlers.NetworkNotify
 
         private void OnEnemySpawned(int enemyId, int enemyType, Vector3 position, int level, bool isBoss)
         {
+            DebugLogger.Log($"[Host] OnEnemySpawned called: ID={enemyId}, Type={enemyType}, Pos=({position.x}, {position.y}, {position.z}), Level={level}, IsBoss={isBoss}");
+            DebugLogger.Log($"[Host] IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}");
+            
             if (!LobbyPatchFlags.IsHosting)
+            {
+                DebugLogger.Warning("[Host] Not hosting, skipping enemy spawn broadcast");
                 return;
+            }
 
-            DebugLogger.Log($"[Host] Sending enemy spawn packet: ID={enemyId}, Type={enemyType}, Level={level}");
+            var players = lobbyContext.GetPlayers().ToList();
+            DebugLogger.Log($"[Host] Broadcasting to {players.Count} players");
 
             var packet = new SendEnemySpawnPacket(
                 enemyId,
@@ -35,14 +42,23 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                 isBoss
             );
 
+            int sentCount = 0;
             // Broadcast to all connected clients
-            foreach (var player in lobbyContext.GetPlayers())
+            foreach (var player in players)
             {
                 if (player.Connection != null)
                 {
+                    DebugLogger.Log($"[Host] Sending enemy spawn to player {player.Name} (UUID: {player.UUID})");
                     player.Connection.EnqueuePacket(packet);
+                    sentCount++;
+                }
+                else
+                {
+                    DebugLogger.Warning($"[Host] Player {player.Name} has no connection");
                 }
             }
+            
+            DebugLogger.Log($"[Host] Enemy spawn packet sent to {sentCount} clients");
         }
     }
 }

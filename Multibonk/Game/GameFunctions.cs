@@ -132,6 +132,40 @@ namespace Multibonk.Game
                 }
             }
         }
+
+        /// <summary>
+        /// Cleanup all network players when starting a new game
+        /// </summary>
+        public static void CleanupAllNetworkPlayers()
+        {
+            try
+            {
+                DebugLogger.Log($"Cleaning up {GamePatchFlags.PlayersCache.Count} network players...");
+                
+                foreach (var kvp in GamePatchFlags.PlayersCache.ToList())
+                {
+                    try
+                    {
+                        if (kvp.Value != null && kvp.Value.PlayerObject != null)
+                        {
+                            DebugLogger.Log($"Destroying network player {kvp.Key}");
+                            UnityEngine.Object.Destroy(kvp.Value.PlayerObject);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLogger.Warning($"Error destroying player {kvp.Key}: {ex.Message}");
+                    }
+                }
+                
+                GamePatchFlags.PlayersCache.Clear();
+                DebugLogger.Log("Network players cleanup complete");
+            }
+            catch (Exception ex)
+            {
+                DebugLogger.Error($"Error during cleanup: {ex.Message}");
+            }
+        }
     }
 
 
