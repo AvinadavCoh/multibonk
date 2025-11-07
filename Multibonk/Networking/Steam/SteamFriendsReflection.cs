@@ -56,9 +56,9 @@ namespace Multibonk.Networking.Steam
                         method.GetParameters().Length == 1 &&
                         method.GetParameters()[0].ParameterType == typeof(string));
             }
-            catch (ReflectionTypeLoadException ex)
+            catch (ReflectionTypeLoadException)
             {
-                MelonLogger.Warning($"Could not enumerate types from '{steamFriendsType.Assembly.FullName}': {ex.Message}");
+                // Silently ignore - these are expected in IL2CPP environments
                 return null;
             }
         }
@@ -69,9 +69,9 @@ namespace Multibonk.Networking.Steam
             {
                 return assembly.GetTypes().FirstOrDefault(type => type.FullName == "Steamworks.SteamFriends");
             }
-            catch (ReflectionTypeLoadException ex)
+            catch (ReflectionTypeLoadException)
             {
-                MelonLogger.Warning($"Could not enumerate types from '{assembly.FullName}': {ex.Message}");
+                // Silently ignore - these are expected in IL2CPP environments
                 return null;
             }
         }

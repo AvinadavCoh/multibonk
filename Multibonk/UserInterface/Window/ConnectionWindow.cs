@@ -22,8 +22,7 @@ namespace Multibonk.UserInterface.Window
 
         private string ipAddress = "127.0.0.1";
         private string playerName = "PlayerName";
-        private bool nameIsFocused = false;
-        private bool ipIsFocused = false;
+        private int activeField = 0; // 0 = none, 1 = name, 2 = ip
         private bool steamOverlayAvailable = false;
         private string steamTunnelStatus = string.Empty;
         private string connectionErrorMessage = string.Empty;
@@ -48,71 +47,131 @@ namespace Multibonk.UserInterface.Window
 
                 CustomStyles.DrawWindowBackground(rect, "🌐 Multibonk Multiplayer");
 
-                GUILayout.BeginArea(new Rect(rect.x + 10, rect.y + 40, rect.width - 20, rect.height - 50));
+                float x = rect.x + 10;
+                float y = rect.y + 40;
+                float width = rect.width - 20;
+                float lineHeight = 25;
+                float currentY = y;
 
-                GUILayout.Label("Press F5 to hide/show this menu", CustomStyles.LabelStyle);
-                CustomStyles.Space(10);
+                // Press F5 label
+                GUI.Label(new Rect(x, currentY, width, 20), "Press F5 to hide/show this menu", CustomStyles.LabelStyle);
+                currentY += 30;
 
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("Name:", CustomStyles.LabelStyle, GUILayout.Width(60));
-                playerName = GUILayout.TextField(playerName, CustomStyles.TextFieldStyle);
-                GUILayout.EndHorizontal();
+                // Name field
+                GUI.Label(new Rect(x, currentY, 60, lineHeight), "Name:", CustomStyles.LabelStyle);
+                Rect nameRect = new Rect(x + 65, currentY, width - 65, lineHeight);
+                
+                // Draw name field box
+                GUI.Box(nameRect, "", CustomStyles.TextFieldStyle);
+                GUI.Label(nameRect, playerName, CustomStyles.TextFieldStyle);
+                
+                // Check for clicks on name field
+                if (Event.current.type == EventType.MouseDown && nameRect.Contains(Event.current.mousePosition))
+                {
+                    activeField = 1;
+                    Event.current.Use();
+                }
+                currentY += lineHeight + 5;
 
-                CustomStyles.Space(5);
+                // IP field
+                GUI.Label(new Rect(x, currentY, 60, lineHeight), "IP:Port:", CustomStyles.LabelStyle);
+                Rect ipRect = new Rect(x + 65, currentY, width - 65, lineHeight);
+                
+                // Draw IP field box
+                GUI.Box(ipRect, "", CustomStyles.TextFieldStyle);
+                GUI.Label(ipRect, ipAddress, CustomStyles.TextFieldStyle);
+                
+                // Check for clicks on IP field
+                if (Event.current.type == EventType.MouseDown && ipRect.Contains(Event.current.mousePosition))
+                {
+                    activeField = 2;
+                    Event.current.Use();
+                }
+                
+                // Handle keyboard input for active field
+                if (Event.current.type == EventType.KeyDown && activeField > 0)
+                {
+                    if (Event.current.keyCode == KeyCode.Backspace)
+                    {
+                        if (activeField == 1 && playerName.Length > 0)
+                            playerName = playerName.Substring(0, playerName.Length - 1);
+                        else if (activeField == 2 && ipAddress.Length > 0)
+                            ipAddress = ipAddress.Substring(0, ipAddress.Length - 1);
+                        Event.current.Use();
+                    }
+                    else if (Event.current.keyCode == KeyCode.Tab)
+                    {
+                        activeField = activeField == 1 ? 2 : 1;
+                        Event.current.Use();
+                    }
+                    else if (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.Escape)
+                    {
+                        activeField = 0;
+                        Event.current.Use();
+                    }
+                    else if (Event.current.character != '\0' && Event.current.character != '\n' && Event.current.character != '\r')
+                    {
+                        if (activeField == 1)
+                            playerName += Event.current.character;
+                        else if (activeField == 2)
+                            ipAddress += Event.current.character;
+                        Event.current.Use();
+                    }
+                }
+                currentY += 15;
 
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("IP:Port:", CustomStyles.LabelStyle, GUILayout.Width(60));
-                ipAddress = GUILayout.TextField(ipAddress, CustomStyles.TextFieldStyle);
-                GUILayout.EndHorizontal();
-
-                CustomStyles.Space(15);
-
-                if (GUILayout.Button("🖥️ Start Server (Host)", CustomStyles.ButtonStyle, GUILayout.Height(35)))
+                // Start Server button
+                if (GUI.Button(new Rect(x, currentY, width, 35), "🖥️ Start Server (Host)", CustomStyles.ButtonStyle))
                 {
                     Preferences.IpAddress.Value = ipAddress;
                     Preferences.PlayerName.Value = playerName;
                     OnStartServer();
                 }
+                currentY += 40;
 
-                CustomStyles.Space(5);
-
-                if (GUILayout.Button("🔌 Connect to Server", CustomStyles.ButtonStyle, GUILayout.Height(35)))
+                // Connect button
+                if (GUI.Button(new Rect(x, currentY, width, 35), "🔌 Connect to Server", CustomStyles.ButtonStyle))
                 {
                     Preferences.IpAddress.Value = ipAddress;
                     Preferences.PlayerName.Value = playerName;
                     OnConnect();
                 }
-
-                CustomStyles.Space(10);
+                currentY += 45;
 
                 // Steam overlay button
                 bool originalState = GUI.enabled;
                 GUI.enabled = steamOverlayAvailable;
-                if (GUILayout.Button("💬 Steam Friends Overlay", CustomStyles.ButtonStyle, GUILayout.Height(30)))
+                if (GUI.Button(new Rect(x, currentY, width, 30), "💬 Steam Friends Overlay", CustomStyles.ButtonStyle))
                 {
                     OnSteamOverlayClicked?.Invoke();
                 }
                 GUI.enabled = originalState;
+                currentY += 35;
 
                 // Display Steam tunnel status
                 if (steamTunnelStatus != null && steamTunnelStatus.Length > 0)
                 {
-                    CustomStyles.Space(5);
-                    GUILayout.Label(steamTunnelStatus, CustomStyles.LabelStyle);
+                    GUI.Label(new Rect(x, currentY, width, 20), steamTunnelStatus, CustomStyles.LabelStyle);
+                    currentY += 25;
                 }
 
                 // Display connection error
                 if (connectionErrorMessage != null && connectionErrorMessage.Length > 0)
                 {
-                    CustomStyles.Space(5);
-                    GUILayout.Label(connectionErrorMessage, errorStyle);
+                    GUI.Label(new Rect(x, currentY, width, 20), connectionErrorMessage, errorStyle);
                 }
-
-                GUILayout.EndArea();
+            }
+            catch (System.NotSupportedException)
+            {
+                // Silently ignore IL2CPP unstripping failures
             }
             catch (System.Exception ex)
             {
-                MelonLoader.MelonLogger.Error($"ConnectionWindow error: {ex}");
+                // Log other errors
+                if (!(ex is System.NotSupportedException))
+                {
+                    MelonLoader.MelonLogger.Error($"ConnectionWindow error: {ex}");
+                }
             }
         }
 

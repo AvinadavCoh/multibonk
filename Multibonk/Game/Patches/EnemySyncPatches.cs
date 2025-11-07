@@ -118,36 +118,37 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                // Check if we can find the target method
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                     
                 if (assembly == null)
-                {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for EnemyDiedPatch - skipping patch");
                     return false;
-                }
 
                 var enemyType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.Enemy");
                 if (enemyType == null)
-                {
-                    MelonLogger.Warning("Could not find Enemy type for EnemyDiedPatch - skipping patch");
                     return false;
-                }
 
-                var enemyDiedMethods = enemyType.GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    .Where(m => m.Name == "EnemyDied")
-                    .ToList();
-
-                var enemyDiedMethod = enemyDiedMethods.FirstOrDefault(m => m.GetParameters().Length == 0);
+                // Try EnemyDied (private, no parameters)
+                var enemyDiedMethod = enemyType.GetMethod("EnemyDied", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 
-                if (enemyDiedMethod == null)
+                if (enemyDiedMethod != null && enemyDiedMethod.GetParameters().Length == 0)
                 {
-                    MelonLogger.Warning("Could not find EnemyDied method - skipping patch");
-                    return false;
+                    MelonLogger.Msg("Found Enemy.EnemyDied for patching");
+                    return true;
                 }
 
-                return true;
+                // Try Kill (public, no parameters)
+                var killMethod = enemyType.GetMethod("Kill", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                
+                if (killMethod != null && killMethod.GetParameters().Length == 0)
+                {
+                    MelonLogger.Msg("Found Enemy.Kill for patching");
+                    return true;
+                }
+
+                return false;
             }
 
             static System.Reflection.MethodBase TargetMethod()
@@ -156,29 +157,31 @@ namespace Multibonk.Game.Patches
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                     
                 if (assembly == null)
-                {
                     return null;
-                }
 
                 var enemyType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.Enemy");
                 if (enemyType == null)
-                {
                     return null;
-                }
 
-                // Find the EnemyDied method - there are two overloads, get the one without parameters
-                var enemyDiedMethods = enemyType.GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    .Where(m => m.Name == "EnemyDied")
-                    .ToList();
-
-                var enemyDiedMethod = enemyDiedMethods.FirstOrDefault(m => m.GetParameters().Length == 0);
+                // Try EnemyDied first (private, no parameters)
+                var enemyDiedMethod = enemyType.GetMethod("EnemyDied", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 
-                if (enemyDiedMethod != null)
+                if (enemyDiedMethod != null && enemyDiedMethod.GetParameters().Length == 0)
                 {
-                    MelonLogger.Msg("Found Enemy.EnemyDied for patching");
+                    return enemyDiedMethod;
                 }
 
-                return enemyDiedMethod;
+                // Fall back to Kill (public, no parameters)
+                var killMethod = enemyType.GetMethod("Kill", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                
+                if (killMethod != null && killMethod.GetParameters().Length == 0)
+                {
+                    return killMethod;
+                }
+
+                return null;
             }
 
             static void Postfix(object __instance)

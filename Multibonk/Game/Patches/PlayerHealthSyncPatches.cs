@@ -20,7 +20,32 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                return true;
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                {
+                    return false;
+                }
+
+                // Correct class name from dnSpy: Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth
+                var playerHealthType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth");
+                if (playerHealthType == null)
+                {
+                    return false;
+                }
+
+                // Method name from dnSpy: DamagePlayer (takes Enemy, Vector3, DcFlags)
+                var damageMethod = playerHealthType.GetMethod("DamagePlayer", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                if (damageMethod != null)
+                {
+                    MelonLogger.Msg($"Found PlayerHealth.DamagePlayer for patching");
+                    return true;
+                }
+
+                return false;
             }
 
             static System.Reflection.MethodBase TargetMethod()
@@ -29,54 +54,14 @@ namespace Multibonk.Game.Patches
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                     
                 if (assembly == null)
-                {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for PlayerTakeDamagePatch");
                     return null;
-                }
 
-                // Try multiple possible player/health class names
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.Player",
-                    "Il2CppAssets.Scripts.Player.Player",
-                    "Il2Cpp.PlayerController",
-                    "Il2Cpp.PlayerHealth",
-                    "Player",
-                    "PlayerController",
-                    "PlayerHealth"
-                };
+                var playerHealthType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth");
+                if (playerHealthType == null)
+                    return null;
 
-                foreach (var className in possibleClasses)
-                {
-                    var playerType = assembly.GetType(className);
-                    if (playerType != null)
-                    {
-                        // Try to find damage/hit methods
-                        var damageMethod = playerType.GetMethod("TakeDamage", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (damageMethod == null)
-                        {
-                            damageMethod = playerType.GetMethod("Damage", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (damageMethod == null)
-                        {
-                            damageMethod = playerType.GetMethod("Hit", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (damageMethod != null)
-                        {
-                            MelonLogger.Msg($"Found {className}.{damageMethod.Name} for player damage patching");
-                            return damageMethod;
-                        }
-                    }
-                }
-
-                MelonLogger.Warning("Could not find player damage method - player damage sync disabled");
-                return null;
+                return playerHealthType.GetMethod("DamagePlayer", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
             static void Postfix(object __instance)
@@ -106,7 +91,32 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                return true;
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                {
+                    return false;
+                }
+
+                // Correct class name from dnSpy: Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth
+                var playerHealthType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth");
+                if (playerHealthType == null)
+                {
+                    return false;
+                }
+
+                // Method name from dnSpy: PlayerDied (void, no parameters)
+                var diedMethod = playerHealthType.GetMethod("PlayerDied", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                if (diedMethod != null)
+                {
+                    MelonLogger.Msg($"Found PlayerHealth.PlayerDied for patching");
+                    return true;
+                }
+
+                return false;
             }
 
             static System.Reflection.MethodBase TargetMethod()
@@ -115,54 +125,14 @@ namespace Multibonk.Game.Patches
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                     
                 if (assembly == null)
-                {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for PlayerDeathPatch");
                     return null;
-                }
 
-                // Try multiple possible player class names
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.Player",
-                    "Il2CppAssets.Scripts.Player.Player",
-                    "Il2Cpp.PlayerController",
-                    "Il2Cpp.PlayerHealth",
-                    "Player",
-                    "PlayerController",
-                    "PlayerHealth"
-                };
+                var playerHealthType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth");
+                if (playerHealthType == null)
+                    return null;
 
-                foreach (var className in possibleClasses)
-                {
-                    var playerType = assembly.GetType(className);
-                    if (playerType != null)
-                    {
-                        // Try to find death methods
-                        var deathMethod = playerType.GetMethod("Die", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (deathMethod == null)
-                        {
-                            deathMethod = playerType.GetMethod("Death", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (deathMethod == null)
-                        {
-                            deathMethod = playerType.GetMethod("OnDeath", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (deathMethod != null)
-                        {
-                            MelonLogger.Msg($"Found {className}.{deathMethod.Name} for player death patching");
-                            return deathMethod;
-                        }
-                    }
-                }
-
-                MelonLogger.Warning("Could not find player death method - player death sync disabled");
-                return null;
+                return playerHealthType.GetMethod("PlayerDied", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
             static void Postfix(object __instance)

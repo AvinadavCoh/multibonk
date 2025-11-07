@@ -25,44 +25,26 @@ namespace Multibonk.Game.Patches
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for ChestInteractPatch - skipping patch");
                     return false;
                 }
 
-                // Try multiple possible chest class names
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.InteractableChest",
-                    "Il2CppAssets.Scripts.Interactables.InteractableChest",
-                    "InteractableChest",
-                    "Chest",
-                    "Il2Cpp.Chest"
-                };
-
-                foreach (var className in possibleClasses)
+                // Correct class name from dnSpy: Il2CppAssets.Scripts.Inventory__Items__Pickups.Chests.InteractableChest
+                var chestType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.Chests.InteractableChest");
+                if (chestType == null)
                 {
-                    var chestType = assembly.GetType(className);
-                    if (chestType != null)
-                    {
-                        // Try to find Open or Interact method
-                        var openMethod = chestType.GetMethod("Open", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (openMethod == null)
-                        {
-                            openMethod = chestType.GetMethod("Interact", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (openMethod != null)
-                        {
-                            MelonLogger.Msg($"Found {className}.{openMethod.Name} for chest patching");
-                            return true;
-                        }
-                    }
+                    return false;
                 }
 
-                MelonLogger.Warning("Could not find chest interaction method - chest sync disabled");
+                // Method name from dnSpy: Interact (returns Boolean)
+                var interactMethod = chestType.GetMethod("Interact", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                if (interactMethod != null)
+                {
+                    MelonLogger.Msg($"Found InteractableChest.Interact for patching");
+                    return true;
+                }
+
                 return false;
             }
 
@@ -74,39 +56,12 @@ namespace Multibonk.Game.Patches
                 if (assembly == null)
                     return null;
 
-                // Try multiple possible chest class names
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.InteractableChest",
-                    "Il2CppAssets.Scripts.Interactables.InteractableChest",
-                    "InteractableChest",
-                    "Chest",
-                    "Il2Cpp.Chest"
-                };
+                var chestType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.Chests.InteractableChest");
+                if (chestType == null)
+                    return null;
 
-                foreach (var className in possibleClasses)
-                {
-                    var chestType = assembly.GetType(className);
-                    if (chestType != null)
-                    {
-                        // Try to find Open or Interact method
-                        var openMethod = chestType.GetMethod("Open", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (openMethod == null)
-                        {
-                            openMethod = chestType.GetMethod("Interact", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (openMethod != null)
-                        {
-                            return openMethod;
-                        }
-                    }
-                }
-
-                return null;
+                return chestType.GetMethod("Interact", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
             static void Postfix(object __instance)
@@ -144,44 +99,26 @@ namespace Multibonk.Game.Patches
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for ShrineInteractPatch - skipping patch");
                     return false;
                 }
 
-                // Try multiple possible shrine class names
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.InteractableShrine",
-                    "Il2CppAssets.Scripts.Interactables.InteractableShrine",
-                    "InteractableShrine",
-                    "Shrine",
-                    "Il2Cpp.Shrine"
-                };
-
-                foreach (var className in possibleClasses)
+                // Correct class name from dnSpy: Il2Cpp.InteractableShrineBalance (empty namespace)
+                var shrineType = assembly.GetType("Il2Cpp.InteractableShrineBalance");
+                if (shrineType == null)
                 {
-                    var shrineType = assembly.GetType(className);
-                    if (shrineType != null)
-                    {
-                        // Try to find Use or Interact method
-                        var useMethod = shrineType.GetMethod("Use", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (useMethod == null)
-                        {
-                            useMethod = shrineType.GetMethod("Interact", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (useMethod != null)
-                        {
-                            MelonLogger.Msg($"Found {className}.{useMethod.Name} for shrine patching");
-                            return true;
-                        }
-                    }
+                    return false;
                 }
 
-                MelonLogger.Warning("Could not find shrine interaction method - shrine sync disabled");
+                // Method name from dnSpy: Interact (returns Boolean)
+                var interactMethod = shrineType.GetMethod("Interact", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                if (interactMethod != null)
+                {
+                    MelonLogger.Msg($"Found InteractableShrineBalance.Interact for patching");
+                    return true;
+                }
+
                 return false;
             }
 
@@ -193,39 +130,12 @@ namespace Multibonk.Game.Patches
                 if (assembly == null)
                     return null;
 
-                // Try multiple possible shrine class names
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.InteractableShrine",
-                    "Il2CppAssets.Scripts.Interactables.InteractableShrine",
-                    "InteractableShrine",
-                    "Shrine",
-                    "Il2Cpp.Shrine"
-                };
+                var shrineType = assembly.GetType("Il2Cpp.InteractableShrineBalance");
+                if (shrineType == null)
+                    return null;
 
-                foreach (var className in possibleClasses)
-                {
-                    var shrineType = assembly.GetType(className);
-                    if (shrineType != null)
-                    {
-                        // Try to find Use or Interact method
-                        var useMethod = shrineType.GetMethod("Use", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (useMethod == null)
-                        {
-                            useMethod = shrineType.GetMethod("Interact", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        }
-
-                        if (useMethod != null)
-                        {
-                            return useMethod;
-                        }
-                    }
-                }
-
-                return null;
+                return shrineType.GetMethod("Interact", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
             static void Postfix(object __instance)
