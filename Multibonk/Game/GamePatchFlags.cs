@@ -26,5 +26,20 @@ namespace Multibonk.Game
         {
             GameplayRules = snapshot;
         }
+
+        /// <summary>
+        /// Clears all game state when starting a new game
+        /// Call this when returning to character selection or starting a new run
+        /// </summary>
+        public static void ClearGameState()
+        {
+            PlayersCache.Clear();
+            Seed = _rng.Next(int.MinValue, int.MaxValue);
+            AllowStartMapCall = false;
+            LastPlayerPosition = Vector3.zero;
+            LastPlayerRotation = Quaternion.identity;
+            
+            MelonLoader.MelonLogger.Msg("[GamePatchFlags] Cleared game state for new game");
+        }
     }
 }

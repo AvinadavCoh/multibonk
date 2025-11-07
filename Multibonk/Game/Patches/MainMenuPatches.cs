@@ -24,6 +24,13 @@ namespace Multibonk.Game.Patches
         {
             static bool Prefix()
             {
+                // Clear game state when returning to character selection
+                // This ensures a clean slate for each new game
+                GamePatchFlags.ClearGameState();
+                EnemyDataCache.Clear();
+                EnemyIdMapper.Clear();
+                MelonLogger.Msg("[MainMenu] Cleared game state for new game");
+
                 if (LobbyPatchFlags.IsHosting)
                     return true;
 
@@ -90,6 +97,16 @@ namespace Multibonk.Game.Patches
             {
                 if (!LobbyPatchFlags.IsHosting && !GamePatchFlags.AllowStartMapCall)
                     return false;
+
+                // Additional cleanup when map actually starts
+                // Ensures everything is reset before game begins
+                if (LobbyPatchFlags.IsHosting)
+                {
+                    GamePatchFlags.ClearGameState();
+                    EnemyDataCache.Clear();
+                    EnemyIdMapper.Clear();
+                    MelonLogger.Msg("[MapSelection] Host cleared game state before starting map");
+                }
 
                 GameEvents.TriggerConfirmMap();
 

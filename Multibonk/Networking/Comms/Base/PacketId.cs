@@ -28,6 +28,8 @@ namespace Multibonk.Networking.Comms.Base
        PLAYER_GOLD_GAINED = 22,
        WAVE_START = 23,
        WAVE_COMPLETE = 24,
+       BOSS_SPAWNER_ACTIVATE = 25,
+       STAGE_TRANSITION = 26,
     }
 
     public enum ClientSentPacketId : byte

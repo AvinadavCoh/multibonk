@@ -41,6 +41,9 @@ namespace Multibonk.Game
 
         public static event Action<int, int> MapTileRevealedEvent; // tileX, tileY
 
+        public static event Action<Vector3> BossSpawnerActivateEvent; // spawnerPosition
+        public static event Action StageTransitionEvent; // portal activated
+
 
         public static void TriggerConfirmMap()
         {
@@ -139,6 +142,16 @@ namespace Multibonk.Game
         public static void TriggerPlayerDie()
         {
             PlayerDieEvent?.Invoke();
+        }
+
+        public static void TriggerBossSpawnerActivate(Vector3 spawnerPosition)
+        {
+            BossSpawnerActivateEvent?.Invoke(spawnerPosition);
+        }
+
+        public static void TriggerStageTransition()
+        {
+            StageTransitionEvent?.Invoke();
         }
     }
 }

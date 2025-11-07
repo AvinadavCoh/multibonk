@@ -427,19 +427,34 @@ namespace Multibonk.Game.Patches
                         DebugLogger.Warning($"[EnemySpawnPatch] Could not find enemyName property on EnemyData");
                     }
                     
-                    // Determine if this is a boss spawn
-                    // Check the flag parameter - if it's "Boss" enum value, it's a boss
+                    // Determine if this is a boss spawn by calling IsBoss() method on the Enemy instance
                     bool isBoss = false;
                     try
                     {
-                        if (flag != null)
+                        if (__result != null)
                         {
-                            string flagString = flag.ToString();
-                            isBoss = flagString.Contains("Boss") || flagString.Contains("BOSS");
-                            DebugLogger.Log($"[EnemySpawnPatch] Enemy flag: {flagString}, IsBoss: {isBoss}");
+                            var enemyType_Class = __result.GetType();
+                            var isBossMethod = enemyType_Class.GetMethod("IsBoss");
+                            
+                            if (isBossMethod != null)
+                            {
+                                var isBossResult = isBossMethod.Invoke(__result, null);
+                                if (isBossResult != null)
+                                {
+                                    isBoss = (bool)isBossResult;
+                                    DebugLogger.Log($"[EnemySpawnPatch] Called IsBoss() method: {isBoss}");
+                                }
+                            }
+                            else
+                            {
+                                DebugLogger.Warning($"[EnemySpawnPatch] Could not find IsBoss() method on Enemy");
+                            }
                         }
                     }
-                    catch { }
+                    catch (System.Exception ex)
+                    {
+                        DebugLogger.Warning($"[EnemySpawnPatch] Failed to check IsBoss(): {ex.Message}");
+                    }
 
                     DebugLogger.Log($"[EnemySpawnPatch] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z}), Wave={waveNumber}, IsBoss={isBoss}");
                     

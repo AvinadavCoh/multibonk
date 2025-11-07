@@ -52,15 +52,16 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                         return;
                     }
 
-                    // TODO: Find the correct class for player gold/coins
-                    // Likely candidates: PlayerInventory, CoinManager, GoldManager, PlayerWallet, etc.
-                    var playerInventoryType = assembly.GetType("PlayerInventory") 
-                        ?? assembly.GetType("Il2Cpp.PlayerInventory")
-                        ?? assembly.GetType("Il2CppAssets.Scripts.PlayerInventory");
+                    // Get PlayerInventory type
+                    var playerInventoryType = assembly.GetType("PlayerInventory");
+                    if (playerInventoryType == null)
+                    {
+                        playerInventoryType = assembly.GetType("Il2Cpp.PlayerInventory");
+                    }
 
                     if (playerInventoryType == null)
                     {
-                        MelonLogger.Warning("[Client] Could not find PlayerInventory type - need to find correct class with dnSpy");
+                        MelonLogger.Warning("[Client] Could not find PlayerInventory type");
                         return;
                     }
 
@@ -82,23 +83,20 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                         return;
                     }
 
-                    // TODO: Find the correct method to add gold
-                    // Likely method names: AddGold, AddCoins, AddMoney, GainGold, etc.
-                    var addGoldMethod = playerInventoryType.GetMethod("AddGold") 
-                        ?? playerInventoryType.GetMethod("AddCoins")
-                        ?? playerInventoryType.GetMethod("AddMoney");
-
-                    if (addGoldMethod == null)
+                    // Get current gold
+                    var goldIntProp = playerInventoryType.GetProperty("goldInt");
+                    if (goldIntProp == null)
                     {
-                        MelonLogger.Warning("[Client] Could not find AddGold/AddCoins method - need to find with dnSpy");
-                        MelonLogger.Msg("[Client] Available methods: " + string.Join(", ", 
-                            playerInventoryType.GetMethods().Select(m => m.Name).Take(10)));
+                        MelonLogger.Warning("[Client] Could not find goldInt property");
                         return;
                     }
 
-                    // Apply the gold
-                    addGoldMethod.Invoke(playerInventory, new object[] { packet.GoldAmount });
-                    MelonLogger.Msg($"[Client] ✓ Applied {packet.GoldAmount} gold to local player");
+                    int currentGold = (int)goldIntProp.GetValue(playerInventory);
+                    int newGold = currentGold + packet.GoldAmount;
+
+                    // Set new gold amount
+                    goldIntProp.SetValue(playerInventory, newGold);
+                    MelonLogger.Msg($"[Client] ✓ Applied {packet.GoldAmount} gold to local player (total: {newGold})");
                 }
                 catch (System.Exception ex)
                 {

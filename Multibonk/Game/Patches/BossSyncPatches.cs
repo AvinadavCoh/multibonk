@@ -115,17 +115,16 @@ namespace Multibonk.Game.Patches
 
         /// <summary>
         /// Patches InteractableBossSpawner.Interact to sync boss spawner activation
-        /// When one player activates a boss spawner, all players should see the boss
-        /// DISABLED: Boss spawner interactions already sync via main enemy spawn system
-        /// Bosses spawn properly when host activates spawner
+        /// When host activates a boss spawner (bush), broadcast to clients
+        /// Clients will trigger their own Interact() to spawn the boss locally
         /// </summary>
         [HarmonyPatch]
         class BossSpawnerInteractPatch
         {
             static bool Prepare()
             {
-                // Disable this patch - boss spawning already works without it
-                return false;
+                // Enable this patch for stage transition sync
+                return true;
             }
 
             static System.Reflection.MethodBase TargetMethod()
@@ -168,14 +167,95 @@ namespace Multibonk.Game.Patches
 
                 if (LobbyPatchFlags.IsHosting)
                 {
-                    // Host can activate - will broadcast via SpawnBoss patch
-                    MelonLogger.Msg("[Host] Activating boss spawner");
+                    // Host can activate - broadcast the activation
+                    try
+                    {
+                        var instanceType = __instance.GetType();
+                        var transform = instanceType.GetProperty("transform")?.GetValue(__instance);
+                        if (transform != null)
+                        {
+                            var positionProp = transform.GetType().GetProperty("position");
+                            if (positionProp != null)
+                            {
+                                var position = (UnityEngine.Vector3)positionProp.GetValue(transform);
+                                MelonLogger.Msg($"[Host] Boss spawner activated at ({position.x:F2}, {position.y:F2}, {position.z:F2})");
+                                GameEvents.TriggerBossSpawnerActivate(position);
+                            }
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MelonLogger.Error($"Error broadcasting boss spawner activation: {ex.Message}");
+                    }
                     return true;
                 }
                 else
                 {
-                    // Client cannot activate boss spawners
-                    MelonLogger.Msg("[Client] Boss spawner interaction blocked - only host can activate");
+                    // Client cannot activate boss spawners directly
+                    // They will receive activation via packet handler
+                    MelonLogger.Msg("[Client] Boss spawner interaction blocked - waiting for host activation");
+                    return false; // Block the interaction
+                }
+            }
+        }
+
+        /// <summary>
+        /// Patches InteractableBossSpawnerFinal.Interact to sync stage transitions
+        /// When host activates the portal, broadcast to all clients to load next stage
+        /// </summary>
+        [HarmonyPatch]
+        class PortalInteractPatch
+        {
+            static System.Reflection.MethodBase TargetMethod()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                {
+                    MelonLogger.Warning("Could not find Assembly-CSharp for PortalInteractPatch");
+                    return null;
+                }
+
+                var portalType = assembly.GetType("Il2Cpp.InteractableBossSpawnerFinal");
+                if (portalType == null)
+                {
+                    MelonLogger.Warning("Could not find InteractableBossSpawnerFinal type");
+                    return null;
+                }
+
+                // Find Interact method
+                var interactMethod = portalType.GetMethod("Interact", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                
+                if (interactMethod == null)
+                {
+                    MelonLogger.Warning("Could not find Interact method on InteractableBossSpawnerFinal - patch disabled");
+                    return null;
+                }
+
+                MelonLogger.Msg("Found InteractableBossSpawnerFinal.Interact for patching");
+                return interactMethod;
+            }
+
+            static bool Prefix(object __instance)
+            {
+                // Only host can activate portal in multiplayer
+                if (!LobbyPatchFlags.InMultiplayer)
+                    return true; // Single player, allow normal behavior
+
+                if (LobbyPatchFlags.IsHosting)
+                {
+                    // Host activates portal and broadcasts to clients
+                    MelonLogger.Msg("[Host] Portal activated - broadcasting stage transition");
+                    GameEvents.TriggerStageTransition();
+                    return true;
+                }
+                else
+                {
+                    // Client cannot activate portal directly
+                    // They will receive stage transition via packet handler
+                    MelonLogger.Msg("[Client] Portal interaction blocked - waiting for host stage transition");
                     return false; // Block the interaction
                 }
             }
