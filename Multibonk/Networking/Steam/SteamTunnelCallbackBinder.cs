@@ -219,7 +219,7 @@ namespace Multibonk.Networking.Steam
 
             sanitized = sanitized.Trim('"');
 
-            if (Uri.TryCreate($"tcp://{sanitized}", UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host))
+            if (Uri.TryCreate($"tcp://{sanitized}", UriKind.Absolute, out var uri) && uri.Host != null && uri.Host.Length > 0)
             {
                 address = uri.Host;
                 port = uri.IsDefaultPort ? NetworkDefaults.DefaultPort : uri.Port;

@@ -189,7 +189,7 @@ namespace Multibonk.UserInterface
             DrawRectOutline(rect, 2);
 
             // Text overlay
-            if (!string.IsNullOrEmpty(text))
+            if (text != null && text.Length > 0)
             {
                 GUI.color = Color.white;
                 GUIStyle textStyle = new GUIStyle(GUI.skin.label)
@@ -226,29 +226,37 @@ namespace Multibonk.UserInterface
         // Draw styled window background
         public static void DrawWindowBackground(Rect rect, string title = "")
         {
-            // Main background
-            GUI.color = new Color(0.1f, 0.1f, 0.15f, 0.95f);
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-
-            // Border/frame
-            GUI.color = new Color(0.3f, 0.4f, 0.5f, 1f);
-            DrawRectOutline(rect, 2);
-
-            // Title bar
-            if (!string.IsNullOrEmpty(title))
+            try
             {
-                Rect titleRect = new Rect(rect.x, rect.y, rect.width, 30);
-                GUI.color = new Color(0.15f, 0.2f, 0.3f, 0.95f);
-                GUI.DrawTexture(titleRect, Texture2D.whiteTexture);
-                
-                GUI.color = new Color(0.4f, 0.5f, 0.6f, 1f);
-                DrawRectOutline(titleRect, 1);
-                
-                GUI.color = Color.white;
-                GUI.Label(titleRect, title, TitleStyle);
-            }
+                // Main background
+                GUI.color = new Color(0.1f, 0.1f, 0.15f, 0.95f);
+                GUI.DrawTexture(rect, Texture2D.whiteTexture);
 
-            GUI.color = Color.white;
+                // Border/frame
+                GUI.color = new Color(0.3f, 0.4f, 0.5f, 1f);
+                DrawRectOutline(rect, 2);
+
+                // Title bar
+                if (title != null && title.Length > 0)
+                {
+                    Rect titleRect = new Rect(rect.x, rect.y, rect.width, 30);
+                    GUI.color = new Color(0.15f, 0.2f, 0.3f, 0.95f);
+                    GUI.DrawTexture(titleRect, Texture2D.whiteTexture);
+                    
+                    GUI.color = new Color(0.4f, 0.5f, 0.6f, 1f);
+                    DrawRectOutline(titleRect, 1);
+                    
+                    GUI.color = Color.white;
+                    GUI.Label(titleRect, title, TitleStyle);
+                }
+
+                GUI.color = Color.white;
+            }
+            catch (System.Exception ex)
+            {
+                MelonLoader.MelonLogger.Error($"Error in DrawWindowBackground: {ex.Message}");
+                GUI.color = Color.white;
+            }
         }
     }
 }

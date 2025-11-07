@@ -118,6 +118,35 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
+                // Check if we can find the target method
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                {
+                    MelonLogger.Warning("Could not find Assembly-CSharp for EnemyDiedPatch - skipping patch");
+                    return false;
+                }
+
+                var enemyType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.Enemy");
+                if (enemyType == null)
+                {
+                    MelonLogger.Warning("Could not find Enemy type for EnemyDiedPatch - skipping patch");
+                    return false;
+                }
+
+                var enemyDiedMethods = enemyType.GetMethods(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    .Where(m => m.Name == "EnemyDied")
+                    .ToList();
+
+                var enemyDiedMethod = enemyDiedMethods.FirstOrDefault(m => m.GetParameters().Length == 0);
+                
+                if (enemyDiedMethod == null)
+                {
+                    MelonLogger.Warning("Could not find EnemyDied method - skipping patch");
+                    return false;
+                }
+
                 return true;
             }
 
@@ -128,14 +157,12 @@ namespace Multibonk.Game.Patches
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for EnemyDiedPatch");
                     return null;
                 }
 
                 var enemyType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.Enemy");
                 if (enemyType == null)
                 {
-                    MelonLogger.Warning("Could not find Enemy type for EnemyDiedPatch");
                     return null;
                 }
 
@@ -146,13 +173,11 @@ namespace Multibonk.Game.Patches
 
                 var enemyDiedMethod = enemyDiedMethods.FirstOrDefault(m => m.GetParameters().Length == 0);
                 
-                if (enemyDiedMethod == null)
+                if (enemyDiedMethod != null)
                 {
-                    MelonLogger.Warning("Could not find EnemyDied method");
-                    return null;
+                    MelonLogger.Msg("Found Enemy.EnemyDied for patching");
                 }
 
-                MelonLogger.Msg("Found Enemy.EnemyDied for patching");
                 return enemyDiedMethod;
             }
 
@@ -191,7 +216,33 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                // This patch is ready to apply
+                // Check if we can find the target method
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                {
+                    MelonLogger.Warning("Could not find Assembly-CSharp for EnemyManagerSpawnEnemyPatch - skipping patch");
+                    return false;
+                }
+
+                var enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Managers.EnemyManager");
+                if (enemyManagerType == null)
+                {
+                    MelonLogger.Warning("Could not find EnemyManager type for patching - skipping patch");
+                    return false;
+                }
+
+                var methods = enemyManagerType.GetMethods()
+                    .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
+                    .ToList();
+
+                if (methods.Count == 0)
+                {
+                    MelonLogger.Warning("Could not find SpawnEnemy method with 6 parameters - skipping patch");
+                    return false;
+                }
+
                 return true;
             }
 
@@ -203,26 +254,23 @@ namespace Multibonk.Game.Patches
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp");
                     return null;
                 }
 
                 var enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Managers.EnemyManager");
                 if (enemyManagerType == null)
                 {
-                    MelonLogger.Warning("Could not find EnemyManager type for patching");
                     return null;
                 }
 
                 // Find the SpawnEnemy method with specific parameter types
-                // SpawnEnemy(EnemyData enemyData, Vector3 pos, int level, bool isBoss, EEnemyFlag flag, bool checkAddsCount)
+                // SpawnEnemy(EnemyData enemyData, Vector3 pos, int waveNumber, bool forceSpawn, EEnemyFlag flag, bool canBeElite)
                 var methods = enemyManagerType.GetMethods()
                     .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
                     .ToList();
 
                 if (methods.Count == 0)
                 {
-                    MelonLogger.Warning("Could not find SpawnEnemy method with 6 parameters");
                     return null;
                 }
 
@@ -230,7 +278,7 @@ namespace Multibonk.Game.Patches
                 return methods[0]; // Take the first matching method
             }
 
-            static bool Prefix(object __instance, object enemyData, UnityEngine.Vector3 pos, int level, bool isBoss)
+            static bool Prefix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn)
             {
                 // If in multiplayer as a client, block the spawn (will receive from host)
                 if (LobbyPatchFlags.InMultiplayer && !LobbyPatchFlags.IsHosting)
@@ -246,7 +294,7 @@ namespace Multibonk.Game.Patches
                     {
                         var nameField = enemyData?.GetType().GetProperty("Name");
                         string enemyName = nameField?.GetValue(enemyData)?.ToString() ?? "Unknown";
-                        MelonLogger.Msg($"[Host] Spawning enemy: {enemyName} at ({pos.x}, {pos.y}, {pos.z}), level: {level}, isBoss: {isBoss}");
+                        MelonLogger.Msg($"[Host] Spawning enemy: {enemyName} at ({pos.x}, {pos.y}, {pos.z}), wave: {waveNumber}, forced: {forceSpawn}");
                     }
                     catch { }
                 }
@@ -254,7 +302,7 @@ namespace Multibonk.Game.Patches
                 return true; // Allow spawn
             }
 
-            static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int level, bool isBoss, object __result)
+            static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object __result)
             {
                 // Only host broadcasts spawns
                 if (!LobbyPatchFlags.IsHosting)
@@ -278,7 +326,7 @@ namespace Multibonk.Game.Patches
                     DebugLogger.Log($"[Host] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z})");
                     
                     // Trigger event to broadcast spawn to clients
-                    GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, level, isBoss);
+                    GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, waveNumber, forceSpawn);
                 }
                 catch (System.Exception ex)
                 {

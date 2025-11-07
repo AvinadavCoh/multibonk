@@ -20,19 +20,13 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                // Try to find the chest class
-                return true;
-            }
-
-            static System.Reflection.MethodBase TargetMethod()
-            {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for ChestInteractPatch");
-                    return null;
+                    MelonLogger.Warning("Could not find Assembly-CSharp for ChestInteractPatch - skipping patch");
+                    return false;
                 }
 
                 // Try multiple possible chest class names
@@ -63,12 +57,55 @@ namespace Multibonk.Game.Patches
                         if (openMethod != null)
                         {
                             MelonLogger.Msg($"Found {className}.{openMethod.Name} for chest patching");
-                            return openMethod;
+                            return true;
                         }
                     }
                 }
 
                 MelonLogger.Warning("Could not find chest interaction method - chest sync disabled");
+                return false;
+            }
+
+            static System.Reflection.MethodBase TargetMethod()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                    return null;
+
+                // Try multiple possible chest class names
+                string[] possibleClasses = new[] 
+                { 
+                    "Il2Cpp.InteractableChest",
+                    "Il2CppAssets.Scripts.Interactables.InteractableChest",
+                    "InteractableChest",
+                    "Chest",
+                    "Il2Cpp.Chest"
+                };
+
+                foreach (var className in possibleClasses)
+                {
+                    var chestType = assembly.GetType(className);
+                    if (chestType != null)
+                    {
+                        // Try to find Open or Interact method
+                        var openMethod = chestType.GetMethod("Open", 
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        
+                        if (openMethod == null)
+                        {
+                            openMethod = chestType.GetMethod("Interact", 
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        }
+
+                        if (openMethod != null)
+                        {
+                            return openMethod;
+                        }
+                    }
+                }
+
                 return null;
             }
 
@@ -102,19 +139,13 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                // Try to find the shrine class
-                return true;
-            }
-
-            static System.Reflection.MethodBase TargetMethod()
-            {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
                     
                 if (assembly == null)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for ShrineInteractPatch");
-                    return null;
+                    MelonLogger.Warning("Could not find Assembly-CSharp for ShrineInteractPatch - skipping patch");
+                    return false;
                 }
 
                 // Try multiple possible shrine class names
@@ -145,12 +176,55 @@ namespace Multibonk.Game.Patches
                         if (useMethod != null)
                         {
                             MelonLogger.Msg($"Found {className}.{useMethod.Name} for shrine patching");
-                            return useMethod;
+                            return true;
                         }
                     }
                 }
 
                 MelonLogger.Warning("Could not find shrine interaction method - shrine sync disabled");
+                return false;
+            }
+
+            static System.Reflection.MethodBase TargetMethod()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+                    
+                if (assembly == null)
+                    return null;
+
+                // Try multiple possible shrine class names
+                string[] possibleClasses = new[] 
+                { 
+                    "Il2Cpp.InteractableShrine",
+                    "Il2CppAssets.Scripts.Interactables.InteractableShrine",
+                    "InteractableShrine",
+                    "Shrine",
+                    "Il2Cpp.Shrine"
+                };
+
+                foreach (var className in possibleClasses)
+                {
+                    var shrineType = assembly.GetType(className);
+                    if (shrineType != null)
+                    {
+                        // Try to find Use or Interact method
+                        var useMethod = shrineType.GetMethod("Use", 
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        
+                        if (useMethod == null)
+                        {
+                            useMethod = shrineType.GetMethod("Interact", 
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        }
+
+                        if (useMethod != null)
+                        {
+                            return useMethod;
+                        }
+                    }
+                }
+
                 return null;
             }
 

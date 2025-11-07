@@ -114,7 +114,7 @@ namespace Multibonk.UserInterface.Window
                 }
                 GUILayout.EndHorizontal();
 
-                if (!string.IsNullOrEmpty(reviveDelayError) && reviveEnabled)
+                if (reviveDelayError != null && reviveDelayError.Length > 0 && reviveEnabled)
                 {
                     GUILayout.Label(reviveDelayError, errorLabelStyle);
                 }
@@ -250,7 +250,7 @@ namespace Multibonk.UserInterface.Window
             GUILayout.Label("Steam Tunneling", sectionTitleStyle);
             GUILayout.Label("Use the Steam overlay to discover and join friend lobbies.", descriptionLabelStyle);
 
-            if (!string.IsNullOrEmpty(steamTunnelStatus))
+            if (steamTunnelStatus != null && steamTunnelStatus.Length > 0)
             {
                 GUILayout.Label(steamTunnelStatus, descriptionLabelStyle);
             }

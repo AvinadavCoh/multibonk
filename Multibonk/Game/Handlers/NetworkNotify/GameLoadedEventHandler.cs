@@ -81,7 +81,7 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                 DebugLogger.LogSpawn($"Client selected character: {client.SelectedCharacter}");
 
                 // Skip players who haven't selected a character yet
-                if (string.IsNullOrEmpty(client.SelectedCharacter) || client.SelectedCharacter == "None")
+                if (client.SelectedCharacter == null || client.SelectedCharacter.Length == 0 || client.SelectedCharacter == "None")
                 {
                     DebugLogger.Warning($"Client {client.Name} hasn't selected a character yet, skipping spawn");
                     continue;
@@ -116,7 +116,7 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                         continue; // Don't send spawn packet for themselves
 
                     // Skip players who haven't selected a character
-                    if (string.IsNullOrEmpty(otherPlayer.SelectedCharacter) || otherPlayer.SelectedCharacter == "None")
+                    if (otherPlayer.SelectedCharacter == null || otherPlayer.SelectedCharacter.Length == 0 || otherPlayer.SelectedCharacter == "None")
                         continue;
 
                     var otherPos = otherPlayer.SpawnPosition;

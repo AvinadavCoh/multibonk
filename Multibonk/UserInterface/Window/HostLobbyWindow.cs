@@ -33,7 +33,7 @@ namespace Multibonk.UserInterface.Window
             foreach (var player in LobbyContext.GetPlayers())
             {
                 string playerIcon = "👤";
-                string character = string.IsNullOrEmpty(player.SelectedCharacter) || player.SelectedCharacter == "None" 
+                string character = (player.SelectedCharacter == null || player.SelectedCharacter.Length == 0 || player.SelectedCharacter == "None")
                     ? "⏳ Selecting..." 
                     : $"✓ {player.SelectedCharacter}";
                 
@@ -63,7 +63,7 @@ namespace Multibonk.UserInterface.Window
             GUI.enabled = originalState;
             GUILayout.EndHorizontal();
 
-            if (!string.IsNullOrEmpty(steamTunnelStatus))
+            if (steamTunnelStatus != null && steamTunnelStatus.Length > 0)
             {
                 GUILayout.Space(5);
                 GUILayout.Label(steamTunnelStatus, CustomStyles.LabelStyle);
