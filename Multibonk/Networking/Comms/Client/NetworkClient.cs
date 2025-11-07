@@ -25,7 +25,20 @@ namespace Multibonk.Networking.Comms.Client
             try
             {
                 DebugLogger.Log($"Attempting to connect to {ip}:{port}...");
-                tcpClient.Connect(ip, port);
+                
+                // Parse IP to avoid DNS resolution issues
+                if (System.Net.IPAddress.TryParse(ip, out var ipAddress))
+                {
+                    DebugLogger.Log($"Parsed IP address: {ipAddress}, connecting directly...");
+                    tcpClient.Connect(ipAddress, port);
+                }
+                else
+                {
+                    DebugLogger.Log($"Could not parse as IP, using hostname resolution for: {ip}");
+                    // Fall back to hostname resolution
+                    tcpClient.Connect(ip, port);
+                }
+                
                 DebugLogger.Log($"TCP connection established!");
 
                 connection.Start();

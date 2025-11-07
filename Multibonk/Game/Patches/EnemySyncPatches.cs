@@ -243,6 +243,13 @@ namespace Multibonk.Game.Patches
             /// This bypasses the normal client spawn blocking
             /// </summary>
             public static bool AllowNetworkSpawn = false;
+            
+            /// <summary>
+            /// Track recently broadcast enemies to prevent duplicates
+            /// Key: enemy instance hash code, Value: timestamp
+            /// </summary>
+            private static Dictionary<int, float> recentlyBroadcast = new Dictionary<int, float>();
+            private const float BROADCAST_COOLDOWN = 0.1f; // 100ms cooldown between broadcasts of same enemy
 
             static bool Prepare()
             {
@@ -308,7 +315,7 @@ namespace Multibonk.Game.Patches
                 return methods[0]; // Take the first matching method
             }
 
-            static bool Prefix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn)
+            static bool Prefix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object flag, bool canBeElite)
             {
                 // Allow network-initiated spawns to bypass blocking
                 if (AllowNetworkSpawn)
@@ -331,7 +338,7 @@ namespace Multibonk.Game.Patches
                     {
                         var nameField = enemyData?.GetType().GetProperty("Name");
                         string enemyName = nameField?.GetValue(enemyData)?.ToString() ?? "Unknown";
-                        MelonLogger.Msg($"[Host] Spawning enemy: {enemyName} at ({pos.x}, {pos.y}, {pos.z}), wave: {waveNumber}, forced: {forceSpawn}");
+                        MelonLogger.Msg($"[Host] Spawning enemy: {enemyName} at ({pos.x}, {pos.y}, {pos.z}), wave: {waveNumber}, forced: {forceSpawn}, flag: {flag}");
                     }
                     catch { }
                 }
@@ -339,7 +346,7 @@ namespace Multibonk.Game.Patches
                 return true; // Allow spawn
             }
 
-            static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object __result)
+            static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object flag, bool canBeElite, object __result)
             {
                 DebugLogger.Log($"[EnemySpawnPatch] Postfix called: IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}, Result={__result != null}");
                 
@@ -384,6 +391,27 @@ namespace Multibonk.Game.Patches
                     // Get enemy instance ID for tracking
                     int enemyId = __result != null ? __result.GetHashCode() : 0;
                     
+                    // Check if we recently broadcast this enemy (deduplication)
+                    float currentTime = UnityEngine.Time.time;
+                    if (recentlyBroadcast.TryGetValue(enemyId, out float lastBroadcast))
+                    {
+                        if (currentTime - lastBroadcast < BROADCAST_COOLDOWN)
+                        {
+                            DebugLogger.Log($"[EnemySpawnPatch] Skipping duplicate broadcast for enemy ID {enemyId}");
+                            return;
+                        }
+                    }
+                    
+                    // Mark as broadcast
+                    recentlyBroadcast[enemyId] = currentTime;
+                    
+                    // Clean up old entries (older than 1 second)
+                    var keysToRemove = recentlyBroadcast.Where(kvp => currentTime - kvp.Value > 1f).Select(kvp => kvp.Key).ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        recentlyBroadcast.Remove(key);
+                    }
+                    
                     // Get enemy type from EnemyData.enemyName (EEnemy enum)
                     var enemyNameField = enemyData?.GetType().GetProperty("enemyName");
                     int enemyType = 0;
@@ -398,11 +426,25 @@ namespace Multibonk.Game.Patches
                     {
                         DebugLogger.Warning($"[EnemySpawnPatch] Could not find enemyName property on EnemyData");
                     }
+                    
+                    // Determine if this is a boss spawn
+                    // Check the flag parameter - if it's "Boss" enum value, it's a boss
+                    bool isBoss = false;
+                    try
+                    {
+                        if (flag != null)
+                        {
+                            string flagString = flag.ToString();
+                            isBoss = flagString.Contains("Boss") || flagString.Contains("BOSS");
+                            DebugLogger.Log($"[EnemySpawnPatch] Enemy flag: {flagString}, IsBoss: {isBoss}");
+                        }
+                    }
+                    catch { }
 
-                    DebugLogger.Log($"[EnemySpawnPatch] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z}), Wave={waveNumber}");
+                    DebugLogger.Log($"[EnemySpawnPatch] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z}), Wave={waveNumber}, IsBoss={isBoss}");
                     
                     // Trigger event to broadcast spawn to clients
-                    GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, waveNumber, forceSpawn);
+                    GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, waveNumber, isBoss);
                     
                     DebugLogger.Log($"[EnemySpawnPatch] TriggerEnemySpawned called successfully");
                 }

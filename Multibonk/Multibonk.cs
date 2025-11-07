@@ -68,6 +68,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, ShrineUseEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerDamageEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerDeathEventHandler>();
+            services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
 
