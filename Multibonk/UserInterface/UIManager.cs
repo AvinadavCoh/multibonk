@@ -25,6 +25,7 @@ namespace Multibonk
         public HostLobbyWindow hostLobbyWindow;
         public PlayerHealthHUD playerHealthHUD;
         public OptionsWindow optionsWindow;
+        public LobbySceneWindow lobbySceneWindow;
 
         private readonly SteamTunnelService steamTunnelService;
         private readonly LobbyService lobbyService;
@@ -38,6 +39,7 @@ namespace Multibonk
             HostLobbyWindow hostLobbyWindow,
             PlayerHealthHUD playerHealthHUD,
             OptionsWindow optionsWindow,
+            LobbySceneWindow lobbySceneWindow,
 
             LobbyContext lobby,
             LobbyService lobbyService,
@@ -49,6 +51,7 @@ namespace Multibonk
             this.hostLobbyWindow = hostLobbyWindow;
             this.playerHealthHUD = playerHealthHUD;
             this.optionsWindow = optionsWindow;
+            this.lobbySceneWindow = lobbySceneWindow;
             this.lobbyService = lobbyService;
             this.steamTunnelService = steamTunnelService;
 
@@ -144,6 +147,9 @@ namespace Multibonk
 
             // Always show health HUD when in-game (even with F5 menu hidden)
             playerHealthHUD.Handle();
+
+            // Always render lobby window (it controls its own visibility based on LobbyManager.IsInLobby)
+            lobbySceneWindow.Handle();
 
             // Always render options window (it controls its own visibility)
             optionsWindow.Handle();

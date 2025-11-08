@@ -44,6 +44,8 @@ namespace Multibonk.Game
         public static event Action<Vector3> BossSpawnerActivateEvent; // spawnerPosition
         public static event Action StageTransitionEvent; // portal activated
 
+        public static event Action LobbyStartGameEvent; // host clicked Start Game in lobby
+
 
         public static void TriggerConfirmMap()
         {
@@ -152,6 +154,11 @@ namespace Multibonk.Game
         public static void TriggerStageTransition()
         {
             StageTransitionEvent?.Invoke();
+        }
+
+        public static void TriggerLobbyStartGame()
+        {
+            LobbyStartGameEvent?.Invoke();
         }
     }
 }

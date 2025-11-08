@@ -73,6 +73,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, WaveCompleteEventHandler>();
             services.AddSingleton<IGameEventHandler, BossSpawnerEventHandler>();
             services.AddSingleton<IGameEventHandler, StageTransitionEventHandler>();
+            services.AddSingleton<IGameEventHandler, LobbyStartGameEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
@@ -109,6 +110,8 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, WaveCompletePacketHandler>();
             services.AddSingleton<IClientPacketHandler, BossSpawnerActivatePacketHandler>();
             services.AddSingleton<IClientPacketHandler, StageTransitionPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, JoinLobbyScenePacketHandler>();
+            services.AddSingleton<IClientPacketHandler, StartActualGamePacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();
@@ -126,6 +129,7 @@ namespace Multibonk
             services.AddSingleton<HostLobbyWindow>();
             services.AddSingleton<PlayerHealthHUD>();
             services.AddSingleton<OptionsWindow>();
+            services.AddSingleton<LobbySceneWindow>();
 
             services.AddSingleton<UIManager>();
 
