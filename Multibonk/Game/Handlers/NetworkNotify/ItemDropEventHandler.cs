@@ -9,14 +9,14 @@ namespace Multibonk.Game.Handlers.NetworkNotify
     {
         public ItemDropEventHandler(LobbyContext lobbyContext)
         {
-            GameEvents.SpawnDropEvent += (itemId, position, itemType) =>
+            GameEvents.SpawnDropEvent += (itemId, position, itemType, value) =>
             {
                 if (!LobbyPatchFlags.IsHosting)
                     return;
 
-                MelonLogger.Msg($"Broadcasting item drop: {itemId} at {position}");
+                DebugLogger.Log($"Broadcasting item drop: {itemId} (type {itemType}, value {value}) at {position}");
 
-                var packet = new SendItemDroppedPacket(itemId, position, itemType);
+                var packet = new SendItemDroppedPacket(itemId, position, itemType, value);
 
                 // Broadcast to all connected clients
                 foreach (var player in lobbyContext.GetPlayers())

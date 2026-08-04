@@ -1,5 +1,6 @@
 using MelonLoader;
 using Multibonk.Game.Handlers;
+using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
@@ -7,13 +8,9 @@ using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 namespace Multibonk.Networking.Comms.Client.Handlers
 {
     /// <summary>
-    /// Client-side handler for wave complete packets
-    /// When server completes a wave, client updates its wave state
-    /// 
-    /// TEST:
-    /// 1. Host completes a wave
-    /// 2. Client should receive wave complete notification
-    /// 3. Check logs for "[Client] Wave X completed"
+    /// Client-side handler for wave complete packets.
+    /// In Megabonk this signals that the host's SummonerController started the final swarm.
+    /// The client's own trigger is blocked by WaveProgressionPatches, so replay it here.
     /// </summary>
     public class WaveCompletePacketHandler : IClientPacketHandler
     {
@@ -25,18 +22,36 @@ namespace Multibonk.Networking.Comms.Client.Handlers
         {
             var packet = new WaveCompletePacket(msg);
 
-            MelonLogger.Msg($"[Client] Wave {packet.WaveNumber} completed");
+            MelonLogger.Msg("[Client] Host started the final swarm");
 
-            // Queue wave complete to happen on main Unity thread
+            // Queue to the main Unity thread
             GameDispatcher.Enqueue(() =>
             {
-                // TODO: Find the correct wave manager class and trigger wave complete
-                // This might involve:
-                // - Finding WaveManager or similar class
-                // - Calling CompleteWave() or similar method
-                // - Triggering wave complete UI/rewards
-                
-                MelonLogger.Msg($"[Client] ✓ Wave {packet.WaveNumber} complete acknowledged");
+                try
+                {
+                    var controller = WaveProgressionPatches.GetSummonerController();
+                    if (controller == null)
+                    {
+                        MelonLogger.Warning("[Client] SummonerController not found - cannot start final swarm");
+                        return;
+                    }
+
+                    WaveProgressionPatches.AllowNetworkEvent = true;
+                    try
+                    {
+                        controller.StartFinalSwarm();
+                    }
+                    finally
+                    {
+                        WaveProgressionPatches.AllowNetworkEvent = false;
+                    }
+
+                    MelonLogger.Msg("[Client] ✓ Final swarm started");
+                }
+                catch (System.Exception ex)
+                {
+                    MelonLogger.Error($"[Client] Failed to start final swarm: {ex.Message}");
+                }
             });
         }
     }

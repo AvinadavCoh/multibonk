@@ -1,158 +1,114 @@
 using HarmonyLib;
+using Il2Cpp;
 using MelonLoader;
-using System.Linq;
+using Multibonk.Networking.Lobby;
+using UnityEngine;
 
 namespace Multibonk.Game.Patches
 {
     /// <summary>
-    /// Patches for synchronizing minimap/map reveals between players
-    /// Host explores → triggers GameEvents.MapTileRevealedEvent → broadcasts to clients
-    /// Clients receive → reveal their local minimap
+    /// Synchronizes map/fog-of-war reveals between players.
+    ///
+    /// Megabonk's fog of war lives on Il2Cpp.FullMap: the local player's position is fed into
+    /// QueueRevealFog(Vector3 worldPos) from FixedUpdate, and RevealFog() then clears pixels of
+    /// the fog texture around it (used by both the full map and the minimap material).
+    ///
+    /// Sync model:
+    /// - Host: every fog reveal queued for the host player is broadcast as a MapRevealPacket.
+    ///   TileX/TileY carry the world-space X/Z coordinates (rounded to ints).
+    /// - Client: receives the packet and calls FullMap.QueueRevealFog at that world position,
+    ///   so areas the host explores are revealed for everyone.
     /// </summary>
     public static class MinimapSyncPatches
     {
-        // TODO: Find the actual minimap classes in Assembly-CSharp.dll using dnSpy
-        // Search for keywords: "Minimap", "MapReveal", "MapDiscovery", "FogOfWar", "MapRenderer"
-        
-        // Possible classes to look for:
-        // - MinimapManager / MinimapController
-        // - MapRevealSystem / MapDiscoverySystem
-        // - FogOfWar / FogOfWarManager
-        // - ProceduralMapRenderer (might have reveal methods)
-        
-        /*
+        // Last world position we broadcast - avoids spamming packets every FixedUpdate.
+        private static Vector3 lastBroadcastPos = new Vector3(float.MinValue, 0f, float.MinValue);
+        private const float MIN_BROADCAST_DISTANCE_SQR = 4f; // re-broadcast after ~2 units of movement
+
+        // Cached FullMap instance for client-side reveals
+        private static FullMap cachedFullMap;
+
         /// <summary>
-        /// Patches the minimap reveal method to broadcast tile reveals to clients
-        /// This should run when the host explores a new area
+        /// Host: broadcast fog reveals to clients.
         /// </summary>
-        [HarmonyPatch]
-        class MinimapRevealTilePatch
+        [HarmonyPatch(typeof(FullMap), nameof(FullMap.QueueRevealFog))]
+        class QueueRevealFogPatch
         {
-            static bool Prepare()
+            static void Postfix(FullMap __instance, Vector3 worldPos)
             {
-                return true;
-            }
-
-            static System.Reflection.MethodBase TargetMethod()
-            {
-                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
-                if (assembly == null)
-                {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for MinimapRevealTilePatch");
-                    return null;
-                }
-
-                // TODO: Replace with actual class name
-                var minimapType = assembly.GetType("Il2CppAssets.Scripts.UI.Minimap");
-                if (minimapType == null)
-                {
-                    MelonLogger.Warning("Could not find Minimap type");
-                    return null;
-                }
-
-                // TODO: Replace with actual method name
-                var revealMethod = minimapType.GetMethod("RevealTile", 
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                
-                if (revealMethod == null)
-                {
-                    MelonLogger.Warning("Could not find RevealTile method");
-                    return null;
-                }
-
-                MelonLogger.Msg("Found Minimap.RevealTile for patching");
-                return revealMethod;
-            }
-
-            static void Postfix(object __instance, int tileX, int tileY)
-            {
-                // Only host broadcasts reveals
-                if (!LobbyPatchFlags.IsHosting || !LobbyPatchFlags.InMultiplayer)
+                if (!LobbyPatchFlags.InMultiplayer || !LobbyPatchFlags.IsHosting)
                     return;
 
                 try
                 {
-                    MelonLogger.Msg($"[Host] Map tile revealed: ({tileX}, {tileY})");
-                    GameEvents.TriggerMapTileRevealed(tileX, tileY);
+                    // Cache the instance while we're here (also useful after scene reloads)
+                    cachedFullMap = __instance;
+
+                    if ((worldPos - lastBroadcastPos).sqrMagnitude < MIN_BROADCAST_DISTANCE_SQR)
+                        return;
+
+                    lastBroadcastPos = worldPos;
+
+                    // TileX = world X, TileY = world Z
+                    GameEvents.TriggerMapTileRevealed(
+                        Mathf.RoundToInt(worldPos.x),
+                        Mathf.RoundToInt(worldPos.z));
                 }
                 catch (System.Exception ex)
                 {
-                    MelonLogger.Error($"Error in MinimapRevealTilePatch: {ex.Message}");
+                    MelonLogger.Error($"Error in QueueRevealFogPatch: {ex.Message}");
                 }
             }
         }
-        */
 
-        // ALTERNATIVE: If the game uses a fog of war system
-        /*
-        [HarmonyPatch]
-        class FogOfWarRevealPatch
+        /// <summary>
+        /// Client: reveal fog at a world position received from the host.
+        /// Used by MapRevealPacketHandler / MapRevealBulkPacketHandler.
+        /// Must be called on the main Unity thread.
+        /// </summary>
+        public static void RevealAt(int worldX, int worldZ)
         {
-            static bool Prepare()
+            try
             {
-                return true;
-            }
-
-            static System.Reflection.MethodBase TargetMethod()
-            {
-                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
-                if (assembly == null) return null;
-
-                // TODO: Find actual fog of war class
-                var fogType = assembly.GetType("Il2CppAssets.Scripts.MapGeneration.FogOfWar");
-                if (fogType == null) return null;
-
-                var revealMethod = fogType.GetMethod("Reveal", 
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                
-                if (revealMethod == null) return null;
-
-                MelonLogger.Msg("Found FogOfWar.Reveal for patching");
-                return revealMethod;
-            }
-
-            static void Postfix(object __instance, int x, int y)
-            {
-                if (!LobbyPatchFlags.IsHosting || !LobbyPatchFlags.InMultiplayer)
+                var map = GetFullMap();
+                if (map == null)
+                {
+                    DebugLogger.Warning($"[Client] FullMap not found - cannot reveal ({worldX}, {worldZ})");
                     return;
+                }
 
-                try
-                {
-                    GameEvents.TriggerMapTileRevealed(x, y);
-                }
-                catch (System.Exception ex)
-                {
-                    MelonLogger.Error($"Error in FogOfWarRevealPatch: {ex.Message}");
-                }
+                map.QueueRevealFog(new Vector3(worldX, 0f, worldZ));
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error revealing fog at ({worldX}, {worldZ}): {ex.Message}");
             }
         }
-        */
 
-        // TODO: Steps to implement:
-        // 1. Open Assembly-CSharp.dll in dnSpy
-        // 2. Search for: "RevealTile", "RevealMap", "DiscoverTile", "UpdateMinimap"
-        // 3. Look for UI classes related to minimap
-        // 4. Find the method that reveals tiles when the player explores
-        // 5. Update the patches above with correct class/method names
-        // 6. Uncomment the patches
-        // 7. For client-side: find the method that can force reveal tiles
-        
-        // CURRENT STATUS:
-        // - Found FogOfWar class (only has Update method - likely passive/camera-based)
-        // - Found MinimapCamera class (handles visual elements, not fog control)
-        // - Found MinimapUi class (UI display only)
-        // 
-        // LIKELY CONCLUSION:
-        // The fog of war system in this game appears to be camera-based and passive.
-        // Since we already sync player positions, the minimap fog should naturally
-        // update as each client sees other players moving around. This means explicit
-        // fog synchronization packets may not be necessary.
-        //
-        // The packet infrastructure is ready and can be enabled if we find the
-        // appropriate reveal methods in the future.
+        private static FullMap GetFullMap()
+        {
+            try
+            {
+                // Interop UnityEngine.Object == handles the 'destroyed' case,
+                // so this also refreshes after scene changes
+                if (cachedFullMap == null)
+                    cachedFullMap = UnityEngine.Object.FindObjectOfType<FullMap>();
+            }
+            catch
+            {
+                cachedFullMap = UnityEngine.Object.FindObjectOfType<FullMap>();
+            }
+
+            return cachedFullMap;
+        }
+
+        /// <summary>
+        /// Clears cached state (call on scene change/restart).
+        /// </summary>
+        public static void Clear()
+        {
+            cachedFullMap = null;
+            lastBroadcastPos = new Vector3(float.MinValue, 0f, float.MinValue);
+        }
     }
 }

@@ -7,7 +7,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
     {
         public readonly byte Id = (byte)ServerSentPacketId.ITEM_DROPPED_PACKET;
 
-        public SendItemDroppedPacket(string itemId, Vector3 position, int itemType)
+        public SendItemDroppedPacket(string itemId, Vector3 position, int itemType, int value)
         {
             Message.WriteByte(Id);
             Message.WriteString(itemId);
@@ -15,6 +15,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
             Message.WriteFloat(position.y);
             Message.WriteFloat(position.z);
             Message.WriteInt(itemType);
+            Message.WriteInt(value);
         }
     }
 
@@ -23,12 +24,14 @@ namespace Multibonk.Networking.Comms.Base.Packet
         public string ItemId { get; private set; }
         public Vector3 Position { get; private set; }
         public int ItemType { get; private set; }
+        public int Value { get; private set; }
 
         public ItemDroppedPacket(IncomingMessage msg)
         {
             ItemId = msg.ReadString();
             Position = new Vector3(msg.ReadFloat(), msg.ReadFloat(), msg.ReadFloat());
             ItemType = msg.ReadInt();
+            Value = msg.ReadInt();
         }
     }
 }

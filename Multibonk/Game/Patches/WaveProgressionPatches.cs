@@ -1,176 +1,108 @@
 using HarmonyLib;
+using Il2CppAssets.Scripts.Game.Spawning.New;
 using MelonLoader;
-using Multibonk.Game;
-using System.Linq;
+using Multibonk.Networking.Lobby;
 
 namespace Multibonk.Game.Patches
 {
     /// <summary>
-    /// Patches to synchronize wave progression between players
-    /// 
-    /// IMPLEMENTATION STATUS: Needs dnSpy investigation
-    /// 
-    /// TODO: Find the correct class and methods that handle wave progression
-    /// Search in dnSpy for:
-    /// - "wave", "Wave", "WAVE"
-    /// - Classes like: WaveManager, WaveController, EnemyWaveSystem, etc.
-    /// - Methods like: StartWave, CompleteWave, NextWave, OnWaveComplete
-    /// 
-    /// Wave system might track:
-    /// - Current wave number
-    /// - Enemies remaining in wave
-    /// - Wave timer
-    /// - Wave rewards
-    /// 
-    /// Once found, update the patches below with correct type and method names.
+    /// Synchronizes stage timeline events between players.
+    ///
+    /// Megabonk does not use classic numbered waves. Progression is driven by
+    /// SummonerController (held by EnemyManager.Instance.summonerController), which ticks a
+    /// StageTimeline and fires TimelineEvents (swarms, minibosses) via StartEvent(eventIndex),
+    /// plus StartFinalSwarm() at the end of the stage.
+    ///
+    /// Sync model (host-authoritative):
+    /// - Host: StartEvent / StartFinalSwarm run normally; a postfix broadcasts them.
+    ///   (WaveStartPacket.WaveNumber carries the timeline event index;
+    ///    WaveCompletePacket signals the final swarm.)
+    /// - Client: locally ticked timeline events are blocked by a prefix, and are instead
+    ///   triggered by WaveStart/WaveComplete packets from the host. This keeps swarm and
+    ///   miniboss timing identical for everyone even if stage clocks drift.
     /// </summary>
     public static class WaveProgressionPatches
     {
-        /*
-        [HarmonyPatch] // TODO: Add correct type and method
-        class StartWavePatch
+        /// <summary>
+        /// When true, allows a timeline event triggered by a network packet to run on a client,
+        /// bypassing the local block. Set by the Wave packet handlers around the replayed call.
+        /// </summary>
+        public static bool AllowNetworkEvent = false;
+
+        /// <summary>
+        /// Host: SummonerController.StartEvent(eventIndex) fired -> broadcast to clients.
+        /// Client: block locally ticked events (host packet will trigger them instead).
+        /// </summary>
+        [HarmonyPatch(typeof(SummonerController), nameof(SummonerController.StartEvent))]
+        class StartEventPatch
         {
-            static MethodBase TargetMethod()
+            static bool Prefix(int eventIndex)
             {
-                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                
-                if (assembly == null)
+                if (LobbyPatchFlags.InMultiplayer && !LobbyPatchFlags.IsHosting && !AllowNetworkEvent)
                 {
-                    MelonLogger.Warning("Could not find Assembly-CSharp for wave patch");
-                    return null;
+                    DebugLogger.Log($"[Client] Blocked local timeline event {eventIndex} (waiting for host packet)");
+                    return false;
                 }
-
-                // TODO: Find the correct wave manager class
-                var waveManagerType = assembly.GetType("Il2Cpp.WaveManager") 
-                    ?? assembly.GetType("Il2CppAssets.Scripts.WaveManager")
-                    ?? assembly.GetType("Il2Cpp.EnemyWaveController");
-
-                if (waveManagerType == null)
-                {
-                    MelonLogger.Warning("Could not find WaveManager type - wave sync disabled");
-                    return null;
-                }
-
-                // TODO: Find the method that starts a wave
-                var startWaveMethod = waveManagerType.GetMethod("StartWave")
-                    ?? waveManagerType.GetMethod("BeginWave")
-                    ?? waveManagerType.GetMethod("OnWaveStart");
-
-                if (startWaveMethod == null)
-                {
-                    MelonLogger.Warning("Could not find StartWave method - wave sync disabled");
-                    return null;
-                }
-
-                MelonLogger.Msg($"Found {waveManagerType.Name}.{startWaveMethod.Name} for wave sync patching");
-                return startWaveMethod;
+                return true;
             }
 
-            // Prefix: Block wave start on client (host controls wave progression)
+            static void Postfix(int eventIndex)
+            {
+                if (!LobbyPatchFlags.InMultiplayer || !LobbyPatchFlags.IsHosting)
+                    return;
+
+                // Don't rebroadcast events that came from the network (host never sets the flag,
+                // but guard anyway in case of future host migration).
+                if (AllowNetworkEvent)
+                    return;
+
+                MelonLogger.Msg($"[Host] Timeline event {eventIndex} started, broadcasting...");
+                GameEvents.TriggerWaveStart(eventIndex);
+            }
+        }
+
+        /// <summary>
+        /// Host: StartFinalSwarm fired -> broadcast (sent as WaveComplete packet).
+        /// Client: block local final swarm trigger.
+        /// </summary>
+        [HarmonyPatch(typeof(SummonerController), nameof(SummonerController.StartFinalSwarm))]
+        class StartFinalSwarmPatch
+        {
             static bool Prefix()
             {
-                if (!LobbyPatchFlags.IsHosting)
+                if (LobbyPatchFlags.InMultiplayer && !LobbyPatchFlags.IsHosting && !AllowNetworkEvent)
                 {
-                    MelonLogger.Msg("[Client] Blocked local wave start (will receive from server)");
-                    return false; // Block execution
+                    DebugLogger.Log("[Client] Blocked local final swarm (waiting for host packet)");
+                    return false;
                 }
-                return true; // Allow host to start waves
+                return true;
             }
 
-            // Postfix: Broadcast wave start to all clients
-            static void Postfix(int waveNumber) // TODO: Match actual parameter
+            static void Postfix()
             {
-                if (!LobbyPatchFlags.IsHosting) return;
+                if (!LobbyPatchFlags.InMultiplayer || !LobbyPatchFlags.IsHosting || AllowNetworkEvent)
+                    return;
 
-                MelonLogger.Msg($"[Host] Wave {waveNumber} starting, broadcasting...");
-                GameEvents.TriggerWaveStart(waveNumber);
+                MelonLogger.Msg("[Host] Final swarm started, broadcasting...");
+                GameEvents.TriggerWaveComplete(0);
             }
         }
-        */
 
-        /*
-        [HarmonyPatch] // TODO: Add correct type and method
-        class CompleteWavePatch
+        /// <summary>
+        /// Helper used by the client packet handlers to locate the live SummonerController.
+        /// </summary>
+        public static SummonerController GetSummonerController()
         {
-            static MethodBase TargetMethod()
+            try
             {
-                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                
-                if (assembly == null) return null;
-
-                // TODO: Find the correct wave manager class
-                var waveManagerType = assembly.GetType("Il2Cpp.WaveManager") 
-                    ?? assembly.GetType("Il2CppAssets.Scripts.WaveManager");
-
-                if (waveManagerType == null)
-                {
-                    MelonLogger.Warning("Could not find WaveManager for wave complete patch");
-                    return null;
-                }
-
-                // TODO: Find the method that completes a wave
-                var completeWaveMethod = waveManagerType.GetMethod("CompleteWave")
-                    ?? waveManagerType.GetMethod("OnWaveComplete")
-                    ?? waveManagerType.GetMethod("EndWave");
-
-                if (completeWaveMethod == null)
-                {
-                    MelonLogger.Warning("Could not find CompleteWave method - wave sync disabled");
-                    return null;
-                }
-
-                MelonLogger.Msg($"Found {waveManagerType.Name}.{completeWaveMethod.Name} for wave sync patching");
-                return completeWaveMethod;
+                var enemyManager = Il2CppAssets.Scripts.Managers.EnemyManager.Instance;
+                return enemyManager?.summonerController;
             }
-
-            static void Postfix(int waveNumber) // TODO: Match actual parameter
+            catch (System.Exception ex)
             {
-                if (!LobbyPatchFlags.IsHosting) return;
-
-                MelonLogger.Msg($"[Host] Wave {waveNumber} completed, broadcasting...");
-                GameEvents.TriggerWaveComplete(waveNumber);
+                MelonLogger.Warning($"Could not get SummonerController: {ex.Message}");
+                return null;
             }
         }
-        */
-
-        // ALTERNATIVE: Patch wave counter directly if it's just a field update
-        /*
-        [HarmonyPatch] // TODO: Add correct type and property/field
-        class WaveNumberPropertyPatch
-        {
-            static MethodBase TargetMethod()
-            {
-                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                
-                if (assembly == null) return null;
-
-                var waveManagerType = assembly.GetType("Il2Cpp.WaveManager");
-                if (waveManagerType == null) return null;
-
-                // Find the setter for currentWave or similar property
-                var waveNumberProp = waveManagerType.GetProperty("currentWave")
-                    ?? waveManagerType.GetProperty("waveNumber");
-
-                if (waveNumberProp == null || waveNumberProp.SetMethod == null)
-                {
-                    MelonLogger.Warning("Could not find wave number property setter");
-                    return null;
-                }
-
-                return waveNumberProp.SetMethod;
-            }
-
-            static void Postfix(int value)
-            {
-                if (!LobbyPatchFlags.IsHosting) return;
-
-                MelonLogger.Msg($"[Host] Wave number changed to {value}, broadcasting...");
-                GameEvents.TriggerWaveStart(value);
-            }
-        }
-        */
     }
 }

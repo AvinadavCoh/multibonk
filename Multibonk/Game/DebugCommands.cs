@@ -40,7 +40,7 @@ namespace Multibonk.Game
                 int itemType = 1; // Example item type
                 
                 MelonLogger.Msg($"[DEBUG] Simulating item drop: {itemId} at {position}");
-                GameEvents.TriggerSpawnDrop(itemId, position, itemType);
+                GameEvents.TriggerSpawnDrop(itemId, position, itemType, 1);
             }
 
             // F10 - Simulate enemy taking damage (boss scenario)

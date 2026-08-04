@@ -1,5 +1,6 @@
 using MelonLoader;
 using Multibonk.Game.Handlers;
+using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
@@ -7,14 +8,10 @@ using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
 namespace Multibonk.Networking.Comms.Client.Handlers
 {
     /// <summary>
-    /// Client-side handler for wave start packets
-    /// When server starts a new wave, client updates its wave state
-    /// 
-    /// TEST:
-    /// 1. Host starts game
-    /// 2. Wave progression happens on host
-    /// 3. Client should see wave start notifications
-    /// 4. Check logs for "[Client] Wave X started"
+    /// Client-side handler for wave start packets.
+    /// WaveNumber carries the host's StageTimeline event index. The client's own timeline
+    /// ticking is blocked by WaveProgressionPatches, so this replays the event locally,
+    /// keeping swarm/miniboss timing in sync with the host.
     /// </summary>
     public class WaveStartPacketHandler : IClientPacketHandler
     {
@@ -26,18 +23,36 @@ namespace Multibonk.Networking.Comms.Client.Handlers
         {
             var packet = new WaveStartPacket(msg);
 
-            MelonLogger.Msg($"[Client] Wave {packet.WaveNumber} started");
+            MelonLogger.Msg($"[Client] Timeline event {packet.WaveNumber} started by host");
 
-            // Queue wave start to happen on main Unity thread
+            // Queue to the main Unity thread
             GameDispatcher.Enqueue(() =>
             {
-                // TODO: Find the correct wave manager class and update wave state
-                // This might involve:
-                // - Finding WaveManager or similar class
-                // - Setting currentWave field
-                // - Triggering any wave start UI/effects
-                
-                MelonLogger.Msg($"[Client] ✓ Synchronized to wave {packet.WaveNumber}");
+                try
+                {
+                    var controller = WaveProgressionPatches.GetSummonerController();
+                    if (controller == null)
+                    {
+                        MelonLogger.Warning("[Client] SummonerController not found - cannot replay timeline event");
+                        return;
+                    }
+
+                    WaveProgressionPatches.AllowNetworkEvent = true;
+                    try
+                    {
+                        controller.StartEvent(packet.WaveNumber);
+                    }
+                    finally
+                    {
+                        WaveProgressionPatches.AllowNetworkEvent = false;
+                    }
+
+                    MelonLogger.Msg($"[Client] ✓ Replayed timeline event {packet.WaveNumber}");
+                }
+                catch (System.Exception ex)
+                {
+                    MelonLogger.Error($"[Client] Failed to replay timeline event {packet.WaveNumber}: {ex.Message}");
+                }
             });
         }
     }
