@@ -20,11 +20,10 @@ namespace Multibonk.Game.Handlers.NetworkNotify
             GameEvents.EnemySpawnedEvent += OnEnemySpawned;
         }
 
-        private void OnEnemySpawned(int enemyId, int enemyType, Vector3 position, int level, bool isBoss)
+        private void OnEnemySpawned(int enemyId, int enemyType, Vector3 position, int level, bool isBoss, int flag)
         {
-            DebugLogger.Log($"[Host] OnEnemySpawned called: ID={enemyId}, Type={enemyType}, Pos=({position.x}, {position.y}, {position.z}), Level={level}, IsBoss={isBoss}");
-            DebugLogger.Log($"[Host] IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}");
-            
+            DebugLogger.Log($"[Host] OnEnemySpawned called: ID={enemyId}, Type={enemyType}, Pos=({position.x}, {position.y}, {position.z}), Level={level}, IsBoss={isBoss}, Flag={flag}");
+
             if (!LobbyPatchFlags.IsHosting)
             {
                 DebugLogger.Warning("[Host] Not hosting, skipping enemy spawn broadcast");
@@ -32,14 +31,14 @@ namespace Multibonk.Game.Handlers.NetworkNotify
             }
 
             var players = lobbyContext.GetPlayers().ToList();
-            DebugLogger.Log($"[Host] Broadcasting to {players.Count} players");
 
             var packet = new SendEnemySpawnPacket(
                 enemyId,
                 enemyType,
                 position,
                 level,
-                isBoss
+                isBoss,
+                flag
             );
 
             int sentCount = 0;

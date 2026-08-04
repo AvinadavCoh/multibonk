@@ -13,6 +13,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
         public Vector3 Position { get; set; }
         public int Level { get; set; }
         public bool IsBoss { get; set; }
+        public int Flag { get; set; } // EEnemyFlag enum value (Boss/StageBoss/Elite/...)
 
         public EnemySpawnPacket(IncomingMessage msg)
         {
@@ -21,6 +22,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
             Position = new Vector3(msg.ReadFloat(), msg.ReadFloat(), msg.ReadFloat());
             Level = msg.ReadInt();
             IsBoss = msg.ReadBool();
+            Flag = msg.ReadInt();
         }
     }
 
@@ -31,7 +33,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
     {
         public readonly byte Id = (byte)ServerSentPacketId.ENEMY_SPAWN_PACKET;
 
-        public SendEnemySpawnPacket(int enemyId, int enemyType, Vector3 position, int level, bool isBoss)
+        public SendEnemySpawnPacket(int enemyId, int enemyType, Vector3 position, int level, bool isBoss, int flag)
         {
             Message.WriteByte(Id);
             Message.WriteInt(enemyId);
@@ -41,6 +43,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
             Message.WriteFloat(position.z);
             Message.WriteInt(level);
             Message.WriteBool(isBoss);
+            Message.WriteInt(flag);
         }
     }
 }

@@ -126,44 +126,31 @@ namespace Multibonk.Game.Patches
         {
             static bool Prepare()
             {
-                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
-                if (assembly == null)
-                    return false;
-
-                var enemyType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.Enemy");
-                if (enemyType == null)
-                    return false;
-
-                // Try EnemyDied (private, no parameters)
-                var enemyDiedMethod = enemyType.GetMethod("EnemyDied", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (enemyDiedMethod != null && enemyDiedMethod.GetParameters().Length == 0)
-                {
-                    MelonLogger.Msg("Found Enemy.EnemyDied for patching");
-                    return true;
-                }
-
-                // Try Kill (public, no parameters)
-                var killMethod = enemyType.GetMethod("Kill", 
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                
-                if (killMethod != null && killMethod.GetParameters().Length == 0)
-                {
-                    MelonLogger.Msg("Found Enemy.Kill for patching");
-                    return true;
-                }
-
-                return false;
+                var found = FindDeathMethod() != null;
+                if (!found)
+                    MelonLogger.Warning("Could not find Enemy death method (EnemyDied/Kill) - death sync disabled");
+                return found;
             }
 
             static System.Reflection.MethodBase TargetMethod()
             {
+                var method = FindDeathMethod();
+                if (method != null)
+                    MelonLogger.Msg($"Found Enemy.{method.Name}({method.GetParameters().Length} params) for death sync patching");
+                return method;
+            }
+
+            /// <summary>
+            /// Locates the enemy death method across game versions.
+            /// NOTE: interop proxies expose ALL methods as public, and v1.0.69 added overloads:
+            /// EnemyDied() / EnemyDied(DamageContainer) / Kill(string). GetMethod by name alone
+            /// is ambiguous, so enumerate and filter by name + parameter count.
+            /// </summary>
+            static System.Reflection.MethodBase FindDeathMethod()
+            {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
+
                 if (assembly == null)
                     return null;
 
@@ -171,25 +158,15 @@ namespace Multibonk.Game.Patches
                 if (enemyType == null)
                     return null;
 
-                // Try EnemyDied first (private, no parameters)
-                var enemyDiedMethod = enemyType.GetMethod("EnemyDied", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (enemyDiedMethod != null && enemyDiedMethod.GetParameters().Length == 0)
-                {
-                    return enemyDiedMethod;
-                }
+                var methods = enemyType.GetMethods(
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic |
+                    System.Reflection.BindingFlags.Instance);
 
-                // Fall back to Kill (public, no parameters)
-                var killMethod = enemyType.GetMethod("Kill", 
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                
-                if (killMethod != null && killMethod.GetParameters().Length == 0)
-                {
-                    return killMethod;
-                }
-
-                return null;
+                // Preferred: parameterless EnemyDied (all death paths converge here)
+                return methods.FirstOrDefault(m => m.Name == "EnemyDied" && m.GetParameters().Length == 0)
+                    ?? methods.FirstOrDefault(m => m.Name == "EnemyDied" && m.GetParameters().Length == 1)
+                    ?? methods.FirstOrDefault(m => m.Name == "Kill");
             }
 
             static void Postfix(object __instance)
@@ -270,13 +247,16 @@ namespace Multibonk.Game.Patches
                     return false;
                 }
 
+                // Game v1.0.69+: SpawnEnemy(EnemyData, Vector3 pos, int waveNumber, bool forceSpawn,
+                // EEnemyFlag flag, bool canBeElite, float extraSizeMultiplier) - 7 parameters.
+                // (Older versions had 6; the other current overload takes a summonerId instead of pos.)
                 var methods = enemyManagerType.GetMethods()
-                    .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
+                    .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 7)
                     .ToList();
 
                 if (methods.Count == 0)
                 {
-                    MelonLogger.Warning("Could not find SpawnEnemy method with 6 parameters - skipping patch");
+                    MelonLogger.Warning("Could not find SpawnEnemy method with 7 parameters - skipping patch");
                     return false;
                 }
 
@@ -300,10 +280,10 @@ namespace Multibonk.Game.Patches
                     return null;
                 }
 
-                // Find the SpawnEnemy method with specific parameter types
-                // SpawnEnemy(EnemyData enemyData, Vector3 pos, int waveNumber, bool forceSpawn, EEnemyFlag flag, bool canBeElite)
+                // Find the SpawnEnemy method with specific parameter types (v1.0.69+)
+                // SpawnEnemy(EnemyData enemyData, Vector3 pos, int waveNumber, bool forceSpawn, EEnemyFlag flag, bool canBeElite, float extraSizeMultiplier)
                 var methods = enemyManagerType.GetMethods()
-                    .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
+                    .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 7)
                     .ToList();
 
                 if (methods.Count == 0)
@@ -311,7 +291,7 @@ namespace Multibonk.Game.Patches
                     return null;
                 }
 
-                MelonLogger.Msg($"Found {methods.Count} SpawnEnemy methods with 6 parameters");
+                MelonLogger.Msg($"Found {methods.Count} SpawnEnemy methods with 7 parameters");
                 return methods[0]; // Take the first matching method
             }
 
@@ -348,8 +328,17 @@ namespace Multibonk.Game.Patches
 
             static void Postfix(object __instance, object enemyData, UnityEngine.Vector3 pos, int waveNumber, bool forceSpawn, object flag, bool canBeElite, object __result)
             {
-                DebugLogger.Log($"[EnemySpawnPatch] Postfix called: IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}, Result={__result != null}");
-                
+                BroadcastEnemySpawn(enemyData, __result, pos, waveNumber, flag);
+            }
+
+            /// <summary>
+            /// Shared spawn-broadcast logic, used by both SpawnEnemy overload patches.
+            /// Caches EnemyData (host and client) and broadcasts the spawn (host only).
+            /// </summary>
+            internal static void BroadcastEnemySpawn(object enemyData, object __result, UnityEngine.Vector3 pos, int waveNumber, object flag)
+            {
+                DebugLogger.Log($"[EnemySpawnPatch] Broadcast check: IsHosting={LobbyPatchFlags.IsHosting}, InMultiplayer={LobbyPatchFlags.InMultiplayer}, Result={__result != null}");
+
                 try
                 {
                     // Cache EnemyData for client spawning (works on both host and client)
@@ -456,10 +445,40 @@ namespace Multibonk.Game.Patches
                         DebugLogger.Warning($"[EnemySpawnPatch] Failed to check IsBoss(): {ex.Message}");
                     }
 
-                    DebugLogger.Log($"[EnemySpawnPatch] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z}), Wave={waveNumber}, IsBoss={isBoss}");
-                    
+                    // Additional check: Inspect EnemyData for boss properties
+                    if (!isBoss && enemyData != null)
+                    {
+                        try 
+                        {
+                            // Check for 'isBoss' property
+                            var isBossProp = enemyData.GetType().GetProperty("isBoss");
+                            if (isBossProp != null)
+                            {
+                                var val = isBossProp.GetValue(enemyData);
+                                if (val != null && val is bool b) 
+                                {
+                                    isBoss = b;
+                                    if (isBoss) DebugLogger.Log("[EnemySpawnPatch] Detected boss via EnemyData.isBoss");
+                                }
+                            }
+                        }
+                        catch {}
+                    }
+
+                    // Carry the actual EEnemyFlag so clients replay Boss/StageBoss/Elite spawns
+                    // correctly (this is what makes the boss HP bar appear on clients)
+                    int flagValue = 0;
+                    try
+                    {
+                        if (flag != null)
+                            flagValue = System.Convert.ToInt32(flag);
+                    }
+                    catch { }
+
+                    DebugLogger.Log($"[EnemySpawnPatch] Broadcasting enemy spawn: ID={enemyId}, Type={enemyType}, Pos=({pos.x}, {pos.y}, {pos.z}), Wave={waveNumber}, IsBoss={isBoss}, Flag={flagValue}");
+
                     // Trigger event to broadcast spawn to clients
-                    GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, waveNumber, isBoss);
+                    GameEvents.TriggerEnemySpawned(enemyId, enemyType, pos, waveNumber, isBoss, flagValue);
                     
                     DebugLogger.Log($"[EnemySpawnPatch] TriggerEnemySpawned called successfully");
                 }
@@ -467,6 +486,90 @@ namespace Multibonk.Game.Patches
                 {
                     DebugLogger.Error($"[EnemySpawnPatch] Failed to broadcast enemy spawn: {ex.Message}");
                     DebugLogger.Error($"Stack: {ex.StackTrace}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Patches the second SpawnEnemy overload added in game v1.0.69:
+        /// SpawnEnemy(EnemyData enemyData, int summonerId, bool forceSpawn, EEnemyFlag flag, bool useDirectionBias)
+        /// This is the path used by summoners (regular stage spawning), so without this patch
+        /// most enemies were neither blocked on clients nor broadcast by the host.
+        /// </summary>
+        [HarmonyPatch]
+        public class EnemyManagerSpawnEnemySummonerPatch
+        {
+            static bool Prepare()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+
+                if (assembly == null) return false;
+
+                var enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Managers.EnemyManager");
+                if (enemyManagerType == null) return false;
+
+                var found = enemyManagerType.GetMethods()
+                    .Any(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 5);
+
+                if (!found)
+                {
+                    MelonLogger.Warning("Could not find SpawnEnemy method with 5 parameters (summoner overload) - skipping patch");
+                    return false;
+                }
+
+                MelonLogger.Msg("Found SpawnEnemy (summoner overload, 5 params) for patching");
+                return true;
+            }
+
+            static System.Reflection.MethodBase TargetMethod()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+
+                if (assembly == null) return null;
+
+                var enemyManagerType = assembly.GetType("Il2CppAssets.Scripts.Managers.EnemyManager");
+                if (enemyManagerType == null) return null;
+
+                return enemyManagerType.GetMethods()
+                    .FirstOrDefault(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 5);
+            }
+
+            static bool Prefix()
+            {
+                // Network-initiated spawns bypass the block (uses the shared flag)
+                if (EnemyManagerSpawnEnemyPatch.AllowNetworkSpawn)
+                    return true;
+
+                // Clients don't spawn on their own - the host's packets do it
+                if (LobbyPatchFlags.InMultiplayer && !LobbyPatchFlags.IsHosting)
+                {
+                    DebugLogger.Log("[Client] Blocked local summoner enemy spawn (waiting for host packet)");
+                    return false;
+                }
+
+                return true;
+            }
+
+            static void Postfix(object enemyData, object flag, object __result)
+            {
+                if (__result == null)
+                    return;
+
+                try
+                {
+                    // This overload has no position parameter - read it from the spawned enemy
+                    UnityEngine.Vector3 pos = UnityEngine.Vector3.zero;
+                    var mb = __result as UnityEngine.MonoBehaviour;
+                    if (mb != null)
+                        pos = mb.transform.position;
+
+                    EnemyManagerSpawnEnemyPatch.BroadcastEnemySpawn(enemyData, __result, pos, 0, flag);
+                }
+                catch (System.Exception ex)
+                {
+                    DebugLogger.Error($"[EnemySpawnPatch] Summoner overload postfix failed: {ex.Message}");
                 }
             }
         }

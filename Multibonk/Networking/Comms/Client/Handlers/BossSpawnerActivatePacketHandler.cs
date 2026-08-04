@@ -111,7 +111,18 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                         }
 
                         MelonLogger.Msg($"[Client] Activating boss spawner (distance: {closestDistance:F2}m)");
-                        var result = interactMethod.Invoke(closestSpawner, null);
+                        
+                        // Allow network interaction
+                        Game.Patches.BossSyncPatches.AllowNetworkInteract = true;
+                        object result = null;
+                        try
+                        {
+                            result = interactMethod.Invoke(closestSpawner, null);
+                        }
+                        finally
+                        {
+                            Game.Patches.BossSyncPatches.AllowNetworkInteract = false;
+                        }
                         
                         if (result is bool success && success)
                         {

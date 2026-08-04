@@ -97,19 +97,23 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 {
                     MelonLogger.Msg($"[Client] ✓ Found cached EnemyData for type {packet.EnemyType}!");
                     
-                    // Find the SpawnEnemy method with 6 parameters
+                    // Find the SpawnEnemy method with 7 parameters (v1.0.69+):
+                    // SpawnEnemy(EnemyData, Vector3 pos, int waveNumber, bool forceSpawn, EEnemyFlag flag, bool canBeElite, float extraSizeMultiplier)
                     var enemyFlagType = assembly.GetType("Il2CppAssets.Scripts.Actors.Enemies.EEnemyFlag");
-                    
+
                     var allSpawnMethods = enemyManagerType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                        .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 6)
+                        .Where(m => m.Name == "SpawnEnemy" && m.GetParameters().Length == 7)
                         .ToList();
-                    
+
                     if (allSpawnMethods.Count > 0)
                     {
                         var spawnMethod = allSpawnMethods[0];
-                        var noneFlag = System.Enum.ToObject(enemyFlagType, 0);
-                    
-                        var parameters = new object[] { cachedData, packet.Position, packet.Level, false, noneFlag, true };
+
+                        // Replay with the host's actual EEnemyFlag (Boss/StageBoss/Elite/...) so the
+                        // game treats the spawn correctly - this is what shows the boss HP bar
+                        var spawnFlag = System.Enum.ToObject(enemyFlagType, packet.Flag);
+
+                        var parameters = new object[] { cachedData, packet.Position, packet.Level, false, spawnFlag, true, 1f };
                     
                         // Set flag to allow network spawn (bypasses Prefix blocking)
                         Game.Patches.EnemySyncPatches.EnemyManagerSpawnEnemyPatch.AllowNetworkSpawn = true;
@@ -146,7 +150,13 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 else
                 {
                     DebugLogger.Warning($"[Client] No cached EnemyData for type {packet.EnemyType}. Cache has {Game.Patches.EnemyDataCache.Count} entries.");
-                    DebugLogger.Warning($"[Client] Waiting for at least one local enemy spawn to populate cache...");
+
+                    // Retry the preload on demand - local spawns are blocked on clients,
+                    // so the cache can only come from Resources/EnemyManager scraping.
+                    Game.Handlers.Logic.EnemyCachePreloader.PreloadEnemyTypes();
+
+                    if (Game.Patches.EnemyDataCache.Count > 0)
+                        DebugLogger.Log($"[Client] Cache repopulated with {Game.Patches.EnemyDataCache.Count} entries - next spawn packets should succeed");
                 }
 
                 // Fallback: just log the packet

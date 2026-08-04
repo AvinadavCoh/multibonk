@@ -11,6 +11,8 @@ namespace Multibonk.Game.Patches
     /// </summary>
     public static class BossSyncPatches
     {
+        public static bool AllowNetworkInteract = false;
+
         /// <summary>
         /// Patches EnemyManager.SpawnBoss to broadcast boss spawns
         /// This ensures bosses are properly synchronized with the IsBoss flag
@@ -103,8 +105,11 @@ namespace Multibonk.Game.Patches
                     
                     MelonLogger.Msg($"[Host] Boss spawned: ID={enemyId}, Type={enemyTypeValue}, Level={level}");
                     
-                    // Trigger event with isBoss=true
-                    GameEvents.TriggerEnemySpawned(enemyId, enemyTypeValue, position, level, true);
+                    // Trigger event with isBoss=true and EEnemyFlag.Boss
+                    // (EEnemyFlag: None=0, Elite=1, Boss=2, StageBoss=4, Challenge=8,
+                    //  SummonerMiniboss=16, FinalBoss=32 - verified against v1.0.69)
+                    const int ENEMY_FLAG_BOSS = 2;
+                    GameEvents.TriggerEnemySpawned(enemyId, enemyTypeValue, position, level, true, ENEMY_FLAG_BOSS);
                 }
                 catch (System.Exception ex)
                 {
@@ -191,6 +196,12 @@ namespace Multibonk.Game.Patches
                 }
                 else
                 {
+                    if (AllowNetworkInteract)
+                    {
+                        MelonLogger.Msg("[Client] Allowing network-triggered boss spawner interaction");
+                        return true;
+                    }
+
                     // Client cannot activate boss spawners directly
                     // They will receive activation via packet handler
                     MelonLogger.Msg("[Client] Boss spawner interaction blocked - waiting for host activation");
