@@ -92,6 +92,46 @@ overstates these as working.
 
 ---
 
+## Desync detector
+
+A two-player session used to produce no evidence — things either felt wrong or didn't. The
+detector turns one session into a readable diff of which subsystem drifted.
+
+**How it works.** Both sides keep a ledger ([SyncTelemetry.cs](Multibonk/Game/Diagnostics/SyncTelemetry.cs)):
+the host counts what it **sent** per channel, the client counts what it **applied** to the game
+world. Every 5s the host broadcasts a `StateDigestPacket` — stage/run timers, gold, level, live
+enemy and pickup counts, plus its sent counters. The client diffs that against its own state and
+logs the result.
+
+The client-side counter is only incremented *after* the game call succeeds, never on receipt.
+That's the whole point: a channel the host keeps sending on while the client applies nothing is
+a handler that does nothing.
+
+**Reading the log** (`MultibonkLogs/Multibonk_*.log`, grep for `[SyncCheck]`):
+
+```
+[SyncCheck] #12 t=120.4 OK
+[SyncCheck] #13 t=125.4 DESYNC (2 issue(s))
+[SyncCheck]   EnemyDeath: host sent 61, local applied 0 - handler appears to be a no-op
+[SyncCheck]   enemies: host 47 / local ledger 12 / local mappings 12
+```
+
+- `handler appears to be a no-op` — the client never applies this channel at all. Expect this
+  for `EnemyDeath` on the first run: `EnemyDeathPacketHandler` is a known stub and is
+  **deliberately left un-instrumented** so the detector proves it.
+- `N never applied` — packets are arriving but the apply path is bailing out (guard, null, catch).
+- `applied twice?` — a local action wasn't blocked, so it happens once locally and once from
+  the host packet.
+- `ledger says N applied but only M are mapped` — spawns counted as applied without producing
+  a usable enemy.
+- `digest sequence jumped` — the transport itself is losing packets; treat other findings in
+  that window with suspicion.
+- `XpGain` / `GoldGain` are bidirectional, so a mismatch there is expected and is reported as
+  a `note:`, not an issue.
+
+**Caveat:** the detector reports, it never corrects. Having it paper over a failure would
+defeat it.
+
 ## Verification debt
 
 Nothing since the Nov 2025 session has been tested with two real players. The mod compiles
@@ -119,8 +159,8 @@ and the class/method names were read out of the v1.0.69 interop assembly, which 
 
 ## Suggested order of work
 
-1. Run the two-player checklist and record what actually breaks. Most items below are guesses
-   until this happens.
+1. Run one two-player session and read the `[SyncCheck]` output. That log, not this list, is
+   the real backlog — everything below is a guess until it exists.
 2. Fill in `EnemyDeathPacketHandler` — highest visible impact, and the mapping already exists.
 3. Give shrines a real identity (position-based ID would be enough) so shrine sync is correct.
 4. `EnemyHealthUpdatePacketHandler`, then player death handling / game-over gating.

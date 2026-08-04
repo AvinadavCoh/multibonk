@@ -1,5 +1,6 @@
 using Il2Cpp;
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -41,6 +42,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                         return;
 
                     pickupManager.DespawnPickup(pickup);
+                    SyncTelemetry.RecordApplied(SyncChannel.PickupDespawn);
                 }
                 catch (System.Exception ex)
                 {

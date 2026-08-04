@@ -43,6 +43,8 @@ namespace Multibonk.Game
 
         public static event Action<float, float, bool> TimeSyncEvent; // stageTime, runTime, paused
 
+        public static event Action<Diagnostics.SyncDigest> StateDigestEvent; // desync detector snapshot
+
 
         public static void TriggerConfirmMap()
         {
@@ -171,6 +173,11 @@ namespace Multibonk.Game
         public static void TriggerTimeSync(float stageTime, float runTime, bool paused)
         {
             TimeSyncEvent?.Invoke(stageTime, runTime, paused);
+        }
+
+        public static void TriggerStateDigest(Diagnostics.SyncDigest digest)
+        {
+            StateDigestEvent?.Invoke(digest);
         }
     }
 }

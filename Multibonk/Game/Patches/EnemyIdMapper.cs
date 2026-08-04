@@ -15,6 +15,13 @@ namespace Multibonk.Game.Patches
         private static readonly Dictionary<int, int> _hostToClientId = new Dictionary<int, int>();
 
         /// <summary>
+        /// Number of live host-to-client mappings. Compared against the telemetry
+        /// ledger by the desync detector - if these disagree, spawns are being counted
+        /// as applied without actually producing a mapped enemy.
+        /// </summary>
+        public static int MappingCount => _hostToClientId.Count;
+
+        /// <summary>
         /// Register a mapping when client spawns an enemy from network packet
         /// </summary>
         /// <param name="clientEnemyInstance">The enemy object spawned on client</param>

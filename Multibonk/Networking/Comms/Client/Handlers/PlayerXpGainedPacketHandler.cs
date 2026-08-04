@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -31,6 +32,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                     return;
 
                 PlayerXpPatches.ApplyNetworkXp(packet.XpAmount);
+                SyncTelemetry.RecordApplied(SyncChannel.XpGain);
             });
         }
     }

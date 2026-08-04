@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -47,6 +48,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                     }
 
                     MelonLogger.Msg("[Client] ✓ Final swarm started");
+                    SyncTelemetry.RecordApplied(SyncChannel.FinalSwarm);
                 }
                 catch (System.Exception ex)
                 {

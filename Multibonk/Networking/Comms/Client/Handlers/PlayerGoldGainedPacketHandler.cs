@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -29,6 +30,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                     return;
 
                 PlayerGoldPatches.ApplyNetworkGold(packet.GoldAmount);
+                SyncTelemetry.RecordApplied(SyncChannel.GoldGain);
             });
         }
     }

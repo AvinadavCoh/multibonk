@@ -26,6 +26,11 @@ namespace Multibonk.Game.Patches
                 // Assuming "MainMenu" is the name of the menu scene
                 if (sceneName.Contains("Menu") || sceneName.Contains("Map"))
                 {
+                    // Telemetry resets on BOTH sides - the client's ledger has to start a new
+                    // run at zero or every digest comparison after a restart is nonsense.
+                    SyncDigestPatches.Reset();
+                    Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
+
                     if (LobbyPatchFlags.IsHosting)
                     {
                         MelonLogger.Msg("[RestartPatches] Host loading menu/map - clearing game state");
@@ -87,6 +92,11 @@ namespace Multibonk.Game.Patches
 
             static void Prefix()
             {
+                // Both sides, outside the host guard: a client that keeps its old counters
+                // would compare the new run's digests against last run's totals.
+                SyncDigestPatches.Reset();
+                Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
+
                 if (LobbyPatchFlags.IsHosting)
                 {
                     MelonLogger.Msg("[RestartPatches] Host retrying game - clearing game state");
@@ -149,6 +159,11 @@ namespace Multibonk.Game.Patches
 
             static void Prefix()
             {
+                // Both sides, outside the host guard: a client that keeps its old counters
+                // would compare the new run's digests against last run's totals.
+                SyncDigestPatches.Reset();
+                Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
+
                 if (LobbyPatchFlags.IsHosting)
                 {
                     MelonLogger.Msg("[RestartPatches] Host restarting game - clearing game state");

@@ -31,6 +31,7 @@ namespace Multibonk.Networking.Comms.Base
        BOSS_SPAWNER_ACTIVATE = 25,
        STAGE_TRANSITION = 26,
        TIME_SYNC = 27,
+       STATE_DIGEST = 28,
     }
 
     public enum ClientSentPacketId : byte

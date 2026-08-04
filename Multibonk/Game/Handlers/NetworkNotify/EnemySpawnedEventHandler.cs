@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Lobby;
@@ -57,6 +58,7 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                 }
             }
             
+            SyncTelemetry.RecordSent(SyncChannel.EnemySpawn);
             DebugLogger.Log($"[Host] Enemy spawn packet sent to {sentCount} clients");
         }
     }

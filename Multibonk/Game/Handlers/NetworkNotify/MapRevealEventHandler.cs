@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Lobby;
@@ -40,6 +41,7 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                     player.Connection.EnqueuePacket(packet);
                 }
             }
+            SyncTelemetry.RecordSent(SyncChannel.MapReveal);
         }
 
         /// <summary>

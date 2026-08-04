@@ -97,6 +97,12 @@ namespace Multibonk.Game.Patches
             }
         }
 
+        /// <summary>Host: pickups broadcast and not yet despawned (for the desync detector).</summary>
+        public static int HostLivePickupCount => liveBroadcastIds.Count;
+
+        /// <summary>Client: pickups spawned from host packets and not yet consumed.</summary>
+        public static int ClientLivePickupCount => networkPickups.Count;
+
         /// <summary>
         /// Client: remember which local pickup corresponds to a host pickup id.
         /// </summary>

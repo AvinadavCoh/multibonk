@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -48,6 +49,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                     }
 
                     MelonLogger.Msg($"[Client] ✓ Replayed timeline event {packet.WaveNumber}");
+                    SyncTelemetry.RecordApplied(SyncChannel.TimelineEvent);
                 }
                 catch (System.Exception ex)
                 {

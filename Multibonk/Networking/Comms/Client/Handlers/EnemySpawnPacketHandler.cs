@@ -1,6 +1,7 @@
 using Il2Cpp;
 using MelonLoader;
 using Multibonk.Game;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
@@ -129,6 +130,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                                 
                                 // Register enemy ID mapping (client instance → host ID)
                                 Game.Patches.EnemyIdMapper.RegisterMapping(spawnedEnemy, packet.EnemyId);
+                                SyncTelemetry.RecordApplied(SyncChannel.EnemySpawn);
                             }
                             else
                             {

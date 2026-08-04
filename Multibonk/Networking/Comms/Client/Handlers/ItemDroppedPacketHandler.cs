@@ -1,6 +1,7 @@
 using Il2Cpp;
 using Il2CppAssets.Scripts.Inventory__Items__Pickups.Pickups;
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -54,7 +55,10 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                             0f);   // pickupDelay
 
                         if (pickup != null)
+                        {
                             ItemDropPatches.RegisterNetworkPickup(packet.ItemId, pickup);
+                            SyncTelemetry.RecordApplied(SyncChannel.PickupSpawn);
+                        }
                     }
                     finally
                     {

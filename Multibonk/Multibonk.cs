@@ -76,6 +76,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, StageTransitionEventHandler>();
             services.AddSingleton<IGameEventHandler, TimeSyncEventHandler>();
             services.AddSingleton<IGameEventHandler, PauseSyncEventHandler>();
+            services.AddSingleton<IGameEventHandler, StateDigestEventHandler>(); // desync detector
             services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
@@ -116,6 +117,7 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, BossSpawnerActivatePacketHandler>();
             services.AddSingleton<IClientPacketHandler, StageTransitionPacketHandler>();
             services.AddSingleton<IClientPacketHandler, TimeSyncPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, StateDigestPacketHandler>(); // desync detector
             services.AddSingleton<IClientPacketHandler, PauseGamePacketHandler>();
             services.AddSingleton<IClientPacketHandler, UnpauseGamePacketHandler>();
 

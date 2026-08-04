@@ -1,4 +1,5 @@
 using MelonLoader;
+using Multibonk.Game.Diagnostics;
 using Multibonk.Game.Handlers;
 using Multibonk.Game.Patches;
 using Multibonk.Networking.Comms.Base;
@@ -25,6 +26,7 @@ namespace Multibonk.Networking.Comms.Client.Handlers
             GameDispatcher.Enqueue(() =>
             {
                 MinimapSyncPatches.RevealAt(packet.TileX, packet.TileY);
+                SyncTelemetry.RecordApplied(SyncChannel.MapReveal);
             });
         }
     }
@@ -48,6 +50,12 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                 for (int i = 0; i < packet.TileXCoords.Length; i++)
                 {
                     MinimapSyncPatches.RevealAt(packet.TileXCoords[i], packet.TileYCoords[i]);
+
+                    // Counted per tile: the host already incremented MapReveal once per tile
+                    // as it explored. A client that joins mid-run catches up through this bulk
+                    // packet, and without counting each tile the detector would report the
+                    // whole backlog as "applied 0 - handler appears to be a no-op".
+                    SyncTelemetry.RecordApplied(SyncChannel.MapReveal);
                 }
             });
         }
