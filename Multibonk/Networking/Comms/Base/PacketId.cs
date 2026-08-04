@@ -30,6 +30,7 @@ namespace Multibonk.Networking.Comms.Base
        WAVE_COMPLETE = 24,
        BOSS_SPAWNER_ACTIVATE = 25,
        STAGE_TRANSITION = 26,
+       TIME_SYNC = 27,
     }
 
     public enum ClientSentPacketId : byte
@@ -38,6 +39,9 @@ namespace Multibonk.Networking.Comms.Base
         CHARACTER_SELECTION = 1,
         GAME_LOADED_PACKET = 2,
         PLAYER_MOVE_PACKET = 3,
-        PLAYER_ROTATE_PACKET = 4
+        PLAYER_ROTATE_PACKET = 4,
+        PLAYER_XP_GAINED_PACKET = 5,
+        PLAYER_GOLD_GAINED_PACKET = 6,
+        PLAYER_HEALTH_PACKET = 7
     }
 }

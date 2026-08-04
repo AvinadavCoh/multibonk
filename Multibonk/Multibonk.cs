@@ -62,6 +62,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, PlayerXpEventHandler>();
             services.AddSingleton<IGameEventHandler, PlayerGoldEventHandler>();
             services.AddSingleton<IGameEventHandler, ItemDropEventHandler>();
+            services.AddSingleton<IGameEventHandler, ItemPickedUpEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemySyncEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemySpawnedEventHandler>();
             services.AddSingleton<IGameEventHandler, MapRevealEventHandler>();
@@ -73,6 +74,8 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, WaveCompleteEventHandler>();
             services.AddSingleton<IGameEventHandler, BossSpawnerEventHandler>();
             services.AddSingleton<IGameEventHandler, StageTransitionEventHandler>();
+            services.AddSingleton<IGameEventHandler, TimeSyncEventHandler>();
+            services.AddSingleton<IGameEventHandler, PauseSyncEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
@@ -84,6 +87,9 @@ namespace Multibonk
             services.AddSingleton<IServerPacketHandler, PlayerMovePacketHandler>();
             services.AddSingleton<IServerPacketHandler, PlayerRotatePacketHandler>();
             services.AddSingleton<IServerPacketHandler, GameLoadedPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, PlayerXpGainedServerPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, PlayerGoldGainedServerPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, PlayerHealthServerPacketHandler>();
 
             services.AddSingleton<IClientPacketHandler, LobbyPlayerListPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerSelectedCharacterPacketHandler>();
@@ -109,6 +115,9 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, WaveCompletePacketHandler>();
             services.AddSingleton<IClientPacketHandler, BossSpawnerActivatePacketHandler>();
             services.AddSingleton<IClientPacketHandler, StageTransitionPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, TimeSyncPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, PauseGamePacketHandler>();
+            services.AddSingleton<IClientPacketHandler, UnpauseGamePacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();
@@ -139,10 +148,9 @@ namespace Multibonk
             // Initialize Steam callback binder (activates Steam Rich Presence join support)
             serviceProvider.GetService<SteamTunnelCallbackBinder>();
 
-            // Apply Harmony patches for game hooks
-            var harmony = new HarmonyLib.Harmony("com.avinadavcoh.multibonk");
-            harmony.PatchAll();
-            MelonLogger.Msg("Harmony patches applied successfully");
+            // NOTE: do NOT call Harmony.PatchAll() here - MelonLoader already applies all
+            // [HarmonyPatch] classes automatically at melon init. Doing it again with a second
+            // Harmony instance applied every patch TWICE (double spawns/packets/XP).
 
             base.OnInitializeMelon();
         }

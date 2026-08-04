@@ -14,13 +14,9 @@ namespace Multibonk.Game
         public static event Action<Quaternion> PlayerRotateEvent;
 
         public static event Action PlayerDieEvent;
-        public static event Action PlayerTakeHitEvent;
+        public static event Action<float, float, float> PlayerTakeHitEvent; // currentHealth, maxHealth, damageAmount
 
-        public static event Action BossSpawnEvent;
-        public static event Action BossDamagedEvent;
-
-        public static event Action EnemySpawnEvent;
-        public static event Action<int, int, Vector3, int, bool> EnemySpawnedEvent; // enemyId, enemyType, position, level, isBoss
+        public static event Action<int, int, Vector3, int, bool, int> EnemySpawnedEvent; // enemyId, enemyType, position, level, isBoss, flag (EEnemyFlag)
         public static event Action<string> EnemyDieEvent; // enemyId
         public static event Action<string, float, float> EnemyHealthChangedEvent; // enemyId, currentHealth, maxHealth
 
@@ -29,7 +25,8 @@ namespace Multibonk.Game
 
         public static event Action UseShrineEvent;
 
-        public static event Action<string, Vector3, int> SpawnDropEvent; // itemId, position, itemType
+        public static event Action<string, Vector3, int, int> SpawnDropEvent; // itemId, position, itemType, value
+        public static event Action<string, ushort> ItemPickedUpEvent; // itemId, playerId
         public static event Action<string> OpenChestEvent; // chestId
 
         public static event Action<int> PlayerLevelUpEvent; // newLevel
@@ -43,6 +40,8 @@ namespace Multibonk.Game
 
         public static event Action<Vector3> BossSpawnerActivateEvent; // spawnerPosition
         public static event Action StageTransitionEvent; // portal activated
+
+        public static event Action<float, float, bool> TimeSyncEvent; // stageTime, runTime, paused
 
 
         public static void TriggerConfirmMap()
@@ -99,9 +98,14 @@ namespace Multibonk.Game
             WaveCompleteEvent?.Invoke(waveNumber);
         }
 
-        public static void TriggerSpawnDrop(string itemId, Vector3 position, int itemType)
+        public static void TriggerSpawnDrop(string itemId, Vector3 position, int itemType, int value)
         {
-            SpawnDropEvent?.Invoke(itemId, position, itemType);
+            SpawnDropEvent?.Invoke(itemId, position, itemType, value);
+        }
+
+        public static void TriggerItemPickedUp(string itemId, ushort playerId)
+        {
+            ItemPickedUpEvent?.Invoke(itemId, playerId);
         }
 
         public static void TriggerOpenChest(string chestId)
@@ -119,9 +123,9 @@ namespace Multibonk.Game
             EnemyHealthChangedEvent?.Invoke(enemyId, currentHealth, maxHealth);
         }
 
-        public static void TriggerEnemySpawned(int enemyId, int enemyType, Vector3 position, int level, bool isBoss)
+        public static void TriggerEnemySpawned(int enemyId, int enemyType, Vector3 position, int level, bool isBoss, int flag)
         {
-            EnemySpawnedEvent?.Invoke(enemyId, enemyType, position, level, isBoss);
+            EnemySpawnedEvent?.Invoke(enemyId, enemyType, position, level, isBoss, flag);
         }
 
         public static void TriggerMapTileRevealed(int tileX, int tileY)
@@ -134,9 +138,19 @@ namespace Multibonk.Game
             UseShrineEvent?.Invoke();
         }
 
-        public static void TriggerPlayerTakeHit()
+        public static void TriggerPlayerTakeHit(float currentHealth, float maxHealth, float damageAmount)
         {
-            PlayerTakeHitEvent?.Invoke();
+            PlayerTakeHitEvent?.Invoke(currentHealth, maxHealth, damageAmount);
+        }
+
+        public static void TriggerInGamePause()
+        {
+            InGamePauseEvent?.Invoke();
+        }
+
+        public static void TriggerInGameUnpause()
+        {
+            InGameUnpauseEvent?.Invoke();
         }
 
         public static void TriggerPlayerDie()
@@ -152,6 +166,11 @@ namespace Multibonk.Game
         public static void TriggerStageTransition()
         {
             StageTransitionEvent?.Invoke();
+        }
+
+        public static void TriggerTimeSync(float stageTime, float runTime, bool paused)
+        {
+            TimeSyncEvent?.Invoke(stageTime, runTime, paused);
         }
     }
 }

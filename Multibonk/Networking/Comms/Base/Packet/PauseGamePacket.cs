@@ -16,4 +16,6 @@ namespace Multibonk.Networking.Comms.Base.Packet
             Message.WriteByte(Id);
         }
     }
+
+    // NOTE: UnpauseGamePacket / SendUnpauseGamePacket live in UnpauseGamePacket.cs
 }

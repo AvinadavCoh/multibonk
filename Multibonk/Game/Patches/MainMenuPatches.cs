@@ -95,7 +95,10 @@ namespace Multibonk.Game.Patches
         {
             static bool Prefix()
             {
-                if (!LobbyPatchFlags.IsHosting && !GamePatchFlags.AllowStartMapCall)
+                // Only gate StartMap while actually in a multiplayer lobby.
+                // (Without the InMultiplayer check this also blocked single-player runs
+                // after a lobby closed - frozen player, no spawns.)
+                if (LobbyPatchFlags.InMultiplayer && !LobbyPatchFlags.IsHosting && !GamePatchFlags.AllowStartMapCall)
                     return false;
 
                 // Additional cleanup when map actually starts
