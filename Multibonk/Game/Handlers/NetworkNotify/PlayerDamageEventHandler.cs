@@ -1,40 +1,43 @@
-using MelonLoader;
 using Multibonk.Networking.Comms.Base.Packet;
+using Multibonk.Networking.Comms.Multibonk.Networking.Comms;
 using Multibonk.Networking.Lobby;
 
 namespace Multibonk.Game.Handlers.NetworkNotify
 {
     /// <summary>
-    /// Handles broadcasting player damage events from host to all clients
-    /// Only runs on the host
+    /// Routes local player damage to the other players with real health values.
+    /// - Host: updates its own lobby entry and broadcasts to all clients.
+    /// - Client: updates its own lobby entry and sends to the host, which relays
+    ///   (see PlayerHealthServerPacketHandler).
     /// </summary>
     public class PlayerDamageEventHandler : GameEventHandler
     {
-        public PlayerDamageEventHandler(LobbyContext lobbyContext)
+        public PlayerDamageEventHandler(NetworkService network, LobbyContext lobbyContext)
         {
-            GameEvents.PlayerTakeHitEvent += () =>
+            GameEvents.PlayerTakeHitEvent += (currentHealth, maxHealth, damageAmount) =>
             {
-                if (!LobbyPatchFlags.IsHosting)
+                var myself = lobbyContext.GetMyself();
+                if (myself == null)
                     return;
 
-                // TODO: Get actual damage values from game
-                // For now using placeholder values
-                var myUuid = lobbyContext.GetMyself().UUID;
-                float currentHealth = 80f; // Placeholder
-                float maxHealth = 100f; // Placeholder
-                float damageAmount = 20f; // Placeholder
+                // Keep our own HUD entry fresh
+                myself.CurrentHealth = currentHealth;
+                myself.MaxHealth = maxHealth;
 
-                MelonLogger.Msg($"[Host] Player {myUuid} took {damageAmount:F1} damage. Broadcasting to clients.");
-
-                var packet = new SendPlayerDamagePacket(myUuid, currentHealth, maxHealth, damageAmount);
-                
-                // Broadcast to all connected clients
-                foreach (var player in lobbyContext.GetPlayers())
+                if (LobbyPatchFlags.IsHosting)
                 {
-                    if (player.Connection != null)
+                    DebugLogger.Log($"[Host] Broadcasting damage: {damageAmount:F1} ({currentHealth:F1}/{maxHealth:F1})");
+
+                    var packet = new SendPlayerDamagePacket(myself.UUID, currentHealth, maxHealth, damageAmount);
+                    foreach (var player in lobbyContext.GetPlayers())
                     {
-                        player.Connection.EnqueuePacket(packet);
+                        player.Connection?.EnqueuePacket(packet);
                     }
+                }
+                else
+                {
+                    DebugLogger.Log($"[Client] Sending damage to host: {damageAmount:F1} ({currentHealth:F1}/{maxHealth:F1})");
+                    network.GetClientService().Enqueue(new SendClientHealthPacket(currentHealth, maxHealth, damageAmount));
                 }
             };
         }

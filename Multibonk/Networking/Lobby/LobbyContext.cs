@@ -21,6 +21,10 @@ namespace Multibonk.Networking.Lobby
         public Vector3 SpawnPosition { get; set; }
         public Quaternion SpawnRotation { get; set; }
 
+        // Synced health for the Players HUD (updated by damage packets)
+        public float CurrentHealth { get; set; } = 100f;
+        public float MaxHealth { get; set; } = 100f;
+
         public LobbyPlayer(
             string name = "Unknown",
             ushort? uuid = null,

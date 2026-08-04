@@ -64,20 +64,50 @@ namespace Multibonk.Game.Patches
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
-            static void Postfix(object __instance)
+            // Capture HP before the damage applies so we can compute the real delta
+            static void Prefix(object __instance, ref float __state)
             {
-                if (!LobbyPatchFlags.IsHosting)
+                __state = ReadFloat(__instance, "hp");
+            }
+
+            static void Postfix(object __instance, float __state)
+            {
+                // Both host and client report their own damage (the receiver routes it)
+                if (!LobbyPatchFlags.InMultiplayer)
                     return;
 
                 try
                 {
-                    MelonLogger.Msg($"[Host] Player took damage");
-                    GameEvents.TriggerPlayerTakeHit();
+                    float current = ReadFloat(__instance, "hp");
+                    float max = ReadFloat(__instance, "maxHp");
+                    float damage = __state - current;
+
+                    if (damage <= 0f)
+                        return; // blocked/healed - nothing to report
+
+                    DebugLogger.Log($"[Health] Local player took {damage:F1} damage ({current:F1}/{max:F1})");
+                    GameEvents.TriggerPlayerTakeHit(current, max, damage);
                 }
                 catch (System.Exception ex)
                 {
                     MelonLogger.Error($"Failed to handle player damage: {ex.Message}");
                 }
+            }
+
+            static float ReadFloat(object instance, string name)
+            {
+                try
+                {
+                    var prop = instance.GetType().GetProperty(name);
+                    if (prop != null)
+                        return System.Convert.ToSingle(prop.GetValue(instance));
+
+                    var field = instance.GetType().GetField(name);
+                    if (field != null)
+                        return System.Convert.ToSingle(field.GetValue(instance));
+                }
+                catch { }
+                return 0f;
             }
         }
 
