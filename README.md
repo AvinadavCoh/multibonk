@@ -8,24 +8,31 @@ This project is an open-source mod that enables multiplayer functionality for **
 
 ## Features
 
+Built against **Megabonk v1.0.69**.
+
+`Untested` below means the feature is implemented and compiles, but has not yet been
+confirmed in a real two-player session. See [TODO.md](TODO.md) for the full status.
+
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Player synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Players can see each other in real-time |
-| Map synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Same map is generated for all players |
 | TCP connection | ![OK](https://img.shields.io/badge/OK-green.svg) | Reliable network connection established |
 | Steam integration | ![OK](https://img.shields.io/badge/OK-green.svg) | Invite friends via Steam overlay, auto-join through Rich Presence |
-| XP sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Experience points are synchronized |
-| Level sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Player level ups are synchronized |
+| Character selection sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Everyone sees who picked what |
 | Enemy spawn sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemies spawn for all players |
-| Enemy health sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemy damage and health updates (10% threshold) |
-| Enemy death sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Enemy deaths are synchronized |
-| Boss synchronization | ![OK](https://img.shields.io/badge/OK-green.svg) | Boss spawners, health, and death fully synced |
-| Minimap sync | ![Passive](https://img.shields.io/badge/Passive-blue.svg) | Works naturally through player position sync |
-| Item drops sync | ![Partial](https://img.shields.io/badge/Partial-yellow.svg) | Infrastructure ready, needs game hooks |
 | Chest sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Chest interactions broadcast to all players |
-| Shrine/Shop sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Shrine usage synchronized across players |
-| Player damage sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Damage events and health changes synchronized |
-| Player death sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Death events synced, players stay in multiplayer lobby |
+| Map seed sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host seed forced into map generation so everyone gets the same terrain, shrines and chests |
+| Stage timeline sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Swarms, miniboss alerts and the final swarm replay from the host's timeline |
+| Item drops sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host broadcasts pickup type, position and value; clients suppress local RNG drops |
+| Minimap / fog sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host's explored areas reveal on client maps (not yet the other direction) |
+| Shared XP & gold | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Bidirectional — client pickups count toward the shared pool (RoR2-style) |
+| Clock & pause sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Stage/run timers stay aligned; host pause propagates |
+| Player damage sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Damage and health changes reported to the host and shown on the Players HUD |
+| Shrine/Shop sync | ![Partial](https://img.shields.io/badge/Partial-orange.svg) | Broadcast works, but shrines are identified by a placeholder random ID |
+| Boss synchronization | ![Partial](https://img.shields.io/badge/Partial-orange.svg) | Spawning and boss detection work; health bar and phase transitions do not |
+| Enemy death sync | ![Broken](https://img.shields.io/badge/Broken-red.svg) | Host broadcasts deaths, but the client handler never despawns the enemy |
+| Enemy health sync | ![Broken](https://img.shields.io/badge/Broken-red.svg) | Packets arrive; client handler does not apply them |
+| Player death sync | ![Broken](https://img.shields.io/badge/Broken-red.svg) | Death events sync, but no visuals and game-over still fires on the first death |
 | And much more planned! | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | -|
 
 ## Getting Started
@@ -47,6 +54,16 @@ This project is an open-source mod that enables multiplayer functionality for **
 5. Join the game and host a lobby  
 6. Use ngrok for tunneling your IP to your friend, or use RadminVPN. The server is always started at port 25565  
 7. Tell your friend to join the game and connect with IP:PORT
+
+## Documentation
+
+- **[TODO.md](TODO.md)** — current status, how sync is structured, known gaps, and what to
+  work on next. This is the one that is kept up to date.
+- `STEAM_INTEGRATION.md` — Steam invite / Rich Presence flow. Still accurate.
+- `ENEMY_SYNC_OPTIMIZATION_GUIDE.md`, `XP_SYNC_IMPLEMENTATION.md`,
+  `GOLD_WAVE_SYNC_IMPLEMENTATION.md`, `CHEST_SHRINE_SYNC.md` — written before the v1.0.69
+  API changes. Useful as background on *why* things are shaped the way they are, but the
+  class and method names in them are partly out of date. Trust `TODO.md` and the source.
 
 ## Contributing
 
