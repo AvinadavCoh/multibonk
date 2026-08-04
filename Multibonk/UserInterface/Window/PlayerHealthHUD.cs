@@ -5,14 +5,15 @@ using UnityEngine;
 namespace Multibonk.UserInterface.Window
 {
     /// <summary>
-    /// In-game HUD showing health bars for all players in the lobby
-    /// Displays during gameplay, not in menus
+    /// In-game HUD showing health bars for all players in the lobby.
+    /// Sizes itself to the player count instead of using a fixed-height box.
     /// </summary>
     public class PlayerHealthHUD : WindowBase
     {
+        private const float RowHeight = 46f;
         private LobbyContext lobbyContext;
 
-        public PlayerHealthHUD(LobbyContext context) : base(new Rect(10, 100, 250, 200))
+        public PlayerHealthHUD(LobbyContext context) : base(new Rect(10, 120, 250, 100))
         {
             lobbyContext = context;
         }
@@ -23,37 +24,72 @@ namespace Multibonk.UserInterface.Window
             if (!LobbyPatchFlags.InMultiplayer)
                 return;
 
-            // Draw styled window background
-            CustomStyles.DrawWindowBackground(rect, "🎮 Players");
+            var players = lobbyContext.GetPlayers();
+            if (players.Count == 0)
+                return;
 
-            GUILayout.BeginArea(new Rect(rect.x + 5, rect.y + 35, rect.width - 10, rect.height - 40));
+            // Size the panel to its content
+            windowRect.height = CustomStyles.TitleBarHeight + 10 + players.Count * RowHeight + 6;
+            rect = windowRect;
 
-            // Display each player's health
-            foreach (var player in lobbyContext.GetPlayers())
+            CustomStyles.DrawWindowBackground(rect, "PLAYERS");
+
+            float x = rect.x + 10;
+            float width = rect.width - 20;
+            float y = rect.y + CustomStyles.TitleBarHeight + 8;
+
+            foreach (var player in players)
             {
-                DrawPlayerHealthBar(player);
-                CustomStyles.Space(8);
+                DrawPlayerHealthBar(player, x, y, width);
+                y += RowHeight;
             }
-
-            GUILayout.EndArea();
         }
 
-        private void DrawPlayerHealthBar(LobbyPlayer player)
+        private void DrawPlayerHealthBar(LobbyPlayer player, float x, float y, float width)
         {
-            // Player name with icon
-            string playerIcon = player.UUID == lobbyContext.GetMyself().UUID ? "👤" : "🎮";
-            GUILayout.Label($"{playerIcon} {player.Name}", CustomStyles.LabelStyle);
+            bool isMe = player.UUID == lobbyContext.GetMyself()?.UUID;
+            var nameStyle = isMe
+                ? new GUIStyle(CustomStyles.LabelStyle) { normal = { textColor = CustomStyles.Accent } }
+                : CustomStyles.LabelStyle;
 
-            // TODO: Get actual player health from game
-            // For now using placeholder values (randomized for demo)
-            float currentHealth = 60f + (player.UUID * 5f) % 40f; // Varied for each player
-            float maxHealth = 100f;
+            GUI.Label(new Rect(x, y, width, 18), player.Name, nameStyle);
+
+            // My own bar reads live game health; other players use synced values
+            float currentHealth = player.CurrentHealth;
+            float maxHealth = player.MaxHealth;
+
+            if (isMe && TryGetLocalHealth(out var liveCurrent, out var liveMax))
+            {
+                currentHealth = liveCurrent;
+                maxHealth = liveMax;
+            }
+
+            if (maxHealth <= 0f) maxHealth = 100f;
             float healthPercent = currentHealth / maxHealth;
 
-            // Health bar
-            Rect healthBarRect = GUILayoutUtility.GetRect(220, 22);
-            string healthText = $"{currentHealth:F0} / {maxHealth:F0} HP";
-            CustomStyles.DrawHealthBar(healthBarRect, healthPercent, healthText);
+            var healthBarRect = new Rect(x, y + 20, width, 20);
+            CustomStyles.DrawHealthBar(healthBarRect, healthPercent, $"{currentHealth:F0} / {maxHealth:F0}");
+        }
+
+        private static bool TryGetLocalHealth(out float current, out float max)
+        {
+            current = 0f;
+            max = 0f;
+            try
+            {
+                // PlayerHealth is not a Unity component - it lives on PlayerInventory
+                var health = Il2CppAssets.Scripts.Actors.Player.MyPlayer.Instance?.inventory?.playerHealth;
+                if (health == null)
+                    return false;
+
+                current = health.hp;
+                max = health.maxHp;
+                return max > 0f;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

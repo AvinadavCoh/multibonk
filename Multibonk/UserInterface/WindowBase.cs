@@ -1,14 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MelonLoader;
 using UnityEngine;
 
 namespace Multibonk.UserInterface
 {
-
     public abstract class WindowBase
     {
         protected Rect windowRect;
@@ -20,23 +13,15 @@ namespace Multibonk.UserInterface
             windowRect = initialRect;
         }
 
-        private void InitStyles()
-        {
-            GUI.backgroundColor = Color.black;
-        }
-
         public void Handle()
         {
-            Color prevColor = GUI.backgroundColor;
-            InitStyles();
-
             Utils.HandleWindowDrag(ref windowRect, ref dragging, ref dragOffset);
 
-            InitStyles();
+            // Keep the window on screen
+            windowRect.x = Mathf.Clamp(windowRect.x, 0, Mathf.Max(0, Screen.width - windowRect.width));
+            windowRect.y = Mathf.Clamp(windowRect.y, 0, Mathf.Max(0, Screen.height - windowRect.height));
 
             RenderWindow(windowRect);
-
-            GUI.backgroundColor = prevColor;
 
             GUI.color = Color.white;
         }

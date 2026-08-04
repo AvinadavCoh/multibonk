@@ -6,7 +6,8 @@ public static class Utils
     public static void HandleWindowDrag(ref Rect window, ref bool dragging, ref Vector2 dragOffset)
     {
         Event e = Event.current;
-        Rect dragBar = new Rect(window.x, window.y, window.width, 20);
+        // Drag bar matches the title bar height
+        Rect dragBar = new Rect(window.x, window.y, window.width, Multibonk.UserInterface.CustomStyles.TitleBarHeight);
 
         if (e.type == EventType.MouseDown && dragBar.Contains(e.mousePosition))
         {

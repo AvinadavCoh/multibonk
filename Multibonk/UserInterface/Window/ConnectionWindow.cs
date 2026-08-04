@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace Multibonk.UserInterface.Window
 {
-    public class ConnectionWindowEventArgs { 
+    public class ConnectionWindowEventArgs {
         public string IP { get; }
         public string PlayerName { get; }
 
-        public ConnectionWindowEventArgs(string playerName, string ip) 
+        public ConnectionWindowEventArgs(string playerName, string ip)
         {
             IP = ip;
             PlayerName = playerName;
@@ -16,6 +16,9 @@ namespace Multibonk.UserInterface.Window
 
     public class ConnectionWindow : WindowBase
     {
+        private const float Width = 340f;
+        private const float Height = 442f;
+
         public event Action<ConnectionWindowEventArgs> OnStartServerClicked;
         public event Action<ConnectionWindowEventArgs> OnConnectClicked;
         public event Action OnSteamOverlayClicked;
@@ -26,9 +29,8 @@ namespace Multibonk.UserInterface.Window
         private bool steamOverlayAvailable = false;
         private string steamTunnelStatus = string.Empty;
         private string connectionErrorMessage = string.Empty;
-        private GUIStyle errorStyle;
 
-        public ConnectionWindow() : base(new Rect(10, 10, 300, 200)) 
+        public ConnectionWindow() : base(new Rect(20, 20, Width, Height))
         {
             ipAddress = Preferences.IpAddress.Value;
             playerName = Preferences.PlayerName.Value;
@@ -38,140 +40,83 @@ namespace Multibonk.UserInterface.Window
         {
             try
             {
-                // Initialize error style if needed
-                if (errorStyle == null)
-                {
-                    errorStyle = new GUIStyle(CustomStyles.LabelStyle);
-                    errorStyle.normal.textColor = new Color(1f, 0.3f, 0.3f);
-                }
+                CustomStyles.DrawWindowBackground(rect, "MULTIBONK  MULTIPLAYER");
 
-                CustomStyles.DrawWindowBackground(rect, "🌐 Multibonk Multiplayer");
+                float x = rect.x + CustomStyles.Pad;
+                float width = rect.width - CustomStyles.Pad * 2;
+                float y = rect.y + CustomStyles.TitleBarHeight + 10;
 
-                float x = rect.x + 10;
-                float y = rect.y + 40;
-                float width = rect.width - 20;
-                float lineHeight = 25;
-                float currentY = y;
+                // Hint line
+                GUI.Label(new Rect(x, y, width, 16), "Press F5 to hide / show this menu", CustomStyles.SubtleStyle);
+                y += 24;
 
-                // Press F5 label
-                GUI.Label(new Rect(x, currentY, width, 20), "Press F5 to hide/show this menu", CustomStyles.LabelStyle);
-                currentY += 30;
+                // --- Player name ---
+                GUI.Label(new Rect(x, y, width, 16), "PLAYER NAME", CustomStyles.HeaderStyle);
+                y += 19;
+                var nameRect = new Rect(x, y, width, 28);
+                DrawTextField(nameRect, playerName, activeField == 1);
+                HandleFieldClick(nameRect, 1);
+                y += 36;
 
-                // Name field
-                GUI.Label(new Rect(x, currentY, 60, lineHeight), "Name:", CustomStyles.LabelStyle);
-                Rect nameRect = new Rect(x + 65, currentY, width - 65, lineHeight);
-                
-                // Draw name field box
-                GUI.Box(nameRect, "", CustomStyles.TextFieldStyle);
-                GUI.Label(nameRect, playerName, CustomStyles.TextFieldStyle);
-                
-                // Check for clicks on name field
-                if (Event.current.type == EventType.MouseDown && nameRect.Contains(Event.current.mousePosition))
-                {
-                    activeField = 1;
-                    Event.current.Use();
-                }
-                currentY += lineHeight + 5;
+                // --- Server address ---
+                GUI.Label(new Rect(x, y, width, 16), "SERVER ADDRESS (IP:PORT)", CustomStyles.HeaderStyle);
+                y += 19;
+                var ipRect = new Rect(x, y, width, 28);
+                DrawTextField(ipRect, ipAddress, activeField == 2);
+                HandleFieldClick(ipRect, 2);
+                y += 34;
 
-                // IP field
-                GUI.Label(new Rect(x, currentY, 60, lineHeight), "IP:Port:", CustomStyles.LabelStyle);
-                Rect ipRect = new Rect(x + 65, currentY, width - 65, lineHeight);
-                
-                // Draw IP field box
-                GUI.Box(ipRect, "", CustomStyles.TextFieldStyle);
-                GUI.Label(ipRect, ipAddress, CustomStyles.TextFieldStyle);
-                
-                // Check for clicks on IP field
-                if (Event.current.type == EventType.MouseDown && ipRect.Contains(Event.current.mousePosition))
-                {
-                    activeField = 2;
-                    Event.current.Use();
-                }
-                
-                // Handle keyboard input for active field
-                if (Event.current.type == EventType.KeyDown && activeField > 0)
-                {
-                    if (Event.current.keyCode == KeyCode.Backspace)
-                    {
-                        if (activeField == 1 && playerName.Length > 0)
-                            playerName = playerName.Substring(0, playerName.Length - 1);
-                        else if (activeField == 2 && ipAddress.Length > 0)
-                            ipAddress = ipAddress.Substring(0, ipAddress.Length - 1);
-                        Event.current.Use();
-                    }
-                    else if (Event.current.keyCode == KeyCode.Tab)
-                    {
-                        activeField = activeField == 1 ? 2 : 1;
-                        Event.current.Use();
-                    }
-                    else if (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.Escape)
-                    {
-                        activeField = 0;
-                        Event.current.Use();
-                    }
-                    else if (Event.current.character != '\0' && Event.current.character != '\n' && Event.current.character != '\r')
-                    {
-                        if (activeField == 1)
-                            playerName += Event.current.character;
-                        else if (activeField == 2)
-                            ipAddress += Event.current.character;
-                        Event.current.Use();
-                    }
-                }
-                currentY += 15;
+                HandleKeyboardInput();
 
-                // Show My IP button
-                if (GUI.Button(new Rect(x, currentY, width / 2 - 2, 30), "📍 Show My IP", CustomStyles.ButtonStyle))
-                {
+                // --- IP utility buttons ---
+                float half = (width - 6) / 2;
+                if (GUI.Button(new Rect(x, y, half, 28), "Show My IP", CustomStyles.ButtonStyle))
                     ShowMyIP();
-                }
-                
-                // Test Connection button
-                if (GUI.Button(new Rect(x + width / 2 + 2, currentY, width / 2 - 2, 30), "🔍 Test IP", CustomStyles.ButtonStyle))
-                {
+                if (GUI.Button(new Rect(x + half + 6, y, half, 28), "Test Connection", CustomStyles.ButtonStyle))
                     TestConnection();
-                }
-                currentY += 35;
+                y += 38;
 
-                // Start Server button
-                if (GUI.Button(new Rect(x, currentY, width, 35), "🖥️ Start Server (Host)", CustomStyles.ButtonStyle))
+                CustomStyles.DrawDivider(x, y, width);
+                y += 12;
+
+                // --- Primary actions ---
+                if (GUI.Button(new Rect(x, y, width, 36), "HOST GAME", CustomStyles.PrimaryButtonStyle))
                 {
-                    Preferences.IpAddress.Value = ipAddress;
-                    Preferences.PlayerName.Value = playerName;
+                    SavePreferences();
                     OnStartServer();
                 }
-                currentY += 40;
+                y += 42;
 
-                // Connect button
-                if (GUI.Button(new Rect(x, currentY, width, 35), "🔌 Connect to Server", CustomStyles.ButtonStyle))
+                if (GUI.Button(new Rect(x, y, width, 36), "JOIN GAME", CustomStyles.PrimaryButtonStyle))
                 {
-                    Preferences.IpAddress.Value = ipAddress;
-                    Preferences.PlayerName.Value = playerName;
+                    SavePreferences();
                     OnConnect();
                 }
-                currentY += 45;
+                y += 44;
 
-                // Steam overlay button
+                CustomStyles.DrawDivider(x, y, width);
+                y += 12;
+
+                // --- Steam ---
                 bool originalState = GUI.enabled;
                 GUI.enabled = steamOverlayAvailable;
-                if (GUI.Button(new Rect(x, currentY, width, 30), "💬 Steam Friends Overlay", CustomStyles.ButtonStyle))
+                if (GUI.Button(new Rect(x, y, width, 30), "Steam Friends Overlay", CustomStyles.ButtonStyle))
                 {
                     OnSteamOverlayClicked?.Invoke();
                 }
                 GUI.enabled = originalState;
-                currentY += 35;
+                y += 36;
 
-                // Display Steam tunnel status
+                // --- Status / error ---
                 if (steamTunnelStatus != null && steamTunnelStatus.Length > 0)
                 {
-                    GUI.Label(new Rect(x, currentY, width, 20), steamTunnelStatus, CustomStyles.LabelStyle);
-                    currentY += 25;
+                    GUI.Label(new Rect(x, y, width, 30), steamTunnelStatus, CustomStyles.SubtleStyle);
+                    y += 32;
                 }
 
-                // Display connection error
                 if (connectionErrorMessage != null && connectionErrorMessage.Length > 0)
                 {
-                    GUI.Label(new Rect(x, currentY, width, 20), connectionErrorMessage, errorStyle);
+                    GUI.Label(new Rect(x, y, width, 30), connectionErrorMessage, CustomStyles.ErrorStyle);
                 }
             }
             catch (System.NotSupportedException)
@@ -180,12 +125,76 @@ namespace Multibonk.UserInterface.Window
             }
             catch (System.Exception ex)
             {
-                // Log other errors
                 if (!(ex is System.NotSupportedException))
                 {
                     MelonLoader.MelonLogger.Error($"ConnectionWindow error: {ex}");
                 }
             }
+        }
+
+        private void DrawTextField(Rect rect, string value, bool focused)
+        {
+            var style = focused ? CustomStyles.TextFieldFocusedStyle : CustomStyles.TextFieldStyle;
+            string display = value;
+            if (focused && (Time.unscaledTime * 2f) % 2f < 1f)
+                display += "|"; // blinking caret
+            GUI.Box(rect, "", style);
+            GUI.Label(rect, display, style);
+        }
+
+        private void HandleFieldClick(Rect rect, int fieldId)
+        {
+            if (Event.current.type == EventType.MouseDown)
+            {
+                if (rect.Contains(Event.current.mousePosition))
+                {
+                    activeField = fieldId;
+                    Event.current.Use();
+                }
+                else if (activeField == fieldId)
+                {
+                    activeField = 0;
+                }
+            }
+        }
+
+        private void HandleKeyboardInput()
+        {
+            if (Event.current.type != EventType.KeyDown || activeField == 0)
+                return;
+
+            if (Event.current.keyCode == KeyCode.Backspace)
+            {
+                if (activeField == 1 && playerName.Length > 0)
+                    playerName = playerName.Substring(0, playerName.Length - 1);
+                else if (activeField == 2 && ipAddress.Length > 0)
+                    ipAddress = ipAddress.Substring(0, ipAddress.Length - 1);
+                Event.current.Use();
+            }
+            else if (Event.current.keyCode == KeyCode.Tab)
+            {
+                activeField = activeField == 1 ? 2 : 1;
+                Event.current.Use();
+            }
+            else if (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.Escape)
+            {
+                activeField = 0;
+                Event.current.Use();
+            }
+            else if (Event.current.character != '\0' && Event.current.character != '\n' && Event.current.character != '\r')
+            {
+                if (activeField == 1)
+                    playerName += Event.current.character;
+                else if (activeField == 2)
+                    ipAddress += Event.current.character;
+                Event.current.Use();
+            }
+        }
+
+        private void SavePreferences()
+        {
+            Preferences.IpAddress.Value = ipAddress;
+            Preferences.PlayerName.Value = playerName;
         }
 
         private void OnStartServer() => OnStartServerClicked?.Invoke(new ConnectionWindowEventArgs(playerName, ipAddress));

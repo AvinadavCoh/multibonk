@@ -5,7 +5,7 @@ namespace Multibonk.UserInterface.Window
     public class OptionsWindow : WindowBase
     {
         private const float WindowWidth = 500f;
-        private const float WindowHeight = 600f;
+        private const float WindowHeight = 660f;
 
         public event Action OpenSteamOverlayRequested;
 
@@ -62,12 +62,16 @@ namespace Multibonk.UserInterface.Window
 
             InitializeStyles();
 
-            CustomStyles.DrawWindowBackground(rect, "⚙️ Gameplay Options");
+            CustomStyles.DrawWindowBackground(rect, "GAMEPLAY OPTIONS");
 
-            GUILayout.BeginArea(new Rect(rect.x + 15, rect.y + 45, rect.width - 30, rect.height - 60));
+            GUILayout.BeginArea(new Rect(
+                rect.x + CustomStyles.Pad,
+                rect.y + CustomStyles.TitleBarHeight + 10,
+                rect.width - CustomStyles.Pad * 2,
+                rect.height - CustomStyles.TitleBarHeight - 10 - CustomStyles.Pad));
 
             GUILayout.Label("Multiplayer Settings", titleStyle);
-            CustomStyles.Space(15);
+            CustomStyles.Space(12);
 
             // PvP Section
             DrawToggleSection("Player vs Player (PvP)", 
@@ -149,7 +153,7 @@ namespace Multibonk.UserInterface.Window
 
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button("✓ Apply & Close", CustomStyles.ButtonStyle, GUILayout.Height(35)))
+            if (GUILayout.Button("Apply & Close", CustomStyles.PrimaryButtonStyle, GUILayout.Height(34)))
             {
                 Hide();
             }
@@ -161,29 +165,27 @@ namespace Multibonk.UserInterface.Window
         {
             if (titleStyle == null)
             {
-                titleStyle = new GUIStyle(CustomStyles.HeaderStyle);
-                titleStyle.fontSize = 16;
+                titleStyle = new GUIStyle(CustomStyles.LabelStyle);
+                titleStyle.fontSize = 15;
                 titleStyle.fontStyle = FontStyle.Bold;
             }
 
             if (sectionTitleStyle == null)
             {
-                sectionTitleStyle = new GUIStyle(CustomStyles.HeaderStyle);
-                sectionTitleStyle.fontSize = 13;
+                sectionTitleStyle = new GUIStyle(CustomStyles.LabelStyle);
+                sectionTitleStyle.fontSize = 12;
+                sectionTitleStyle.fontStyle = FontStyle.Bold;
+                sectionTitleStyle.normal.textColor = CustomStyles.Accent;
             }
 
             if (descriptionLabelStyle == null)
             {
-                descriptionLabelStyle = new GUIStyle(CustomStyles.LabelStyle);
-                descriptionLabelStyle.fontSize = 11;
-                descriptionLabelStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
-                descriptionLabelStyle.wordWrap = true;
+                descriptionLabelStyle = new GUIStyle(CustomStyles.SubtleStyle);
             }
 
             if (errorLabelStyle == null)
             {
-                errorLabelStyle = new GUIStyle(CustomStyles.LabelStyle);
-                errorLabelStyle.normal.textColor = new Color(1f, 0.3f, 0.3f);
+                errorLabelStyle = new GUIStyle(CustomStyles.ErrorStyle);
             }
         }
 
@@ -257,7 +259,7 @@ namespace Multibonk.UserInterface.Window
 
             bool previous = GUI.enabled;
             GUI.enabled = steamOverlayAvailable;
-            if (GUILayout.Button("💬 Open Steam Friends Overlay", CustomStyles.ButtonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Open Steam Friends Overlay", CustomStyles.ButtonStyle, GUILayout.Height(30)))
             {
                 OpenSteamOverlayRequested?.Invoke();
             }
