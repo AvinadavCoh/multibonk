@@ -1,35 +1,47 @@
 using MelonLoader;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Lobby;
+using UnityEngine;
 
 namespace Multibonk.Game.Handlers.NetworkNotify
 {
     /// <summary>
-    /// Handles broadcasting shrine usage from host to all clients
-    /// Only runs on the host
+    /// Handles broadcasting shrine usage from host to all clients.
+    /// Only runs on the host.
+    ///
+    /// Identity scheme: the shrine's world position quantized to whole units,
+    /// formatted as "x_y_z".  Map generation is seed-synced so every machine
+    /// places shrines at identical world positions — this key is therefore stable
+    /// and cross-machine deterministic without any per-instance ID field in the
+    /// game's API.
     /// </summary>
     public class ShrineUseEventHandler : GameEventHandler
     {
         public ShrineUseEventHandler(LobbyContext lobbyContext)
         {
-            GameEvents.UseShrineEvent += () =>
+            GameEvents.UseShrineEvent += (Vector3 position, int shrineType) =>
             {
                 if (!LobbyPatchFlags.IsHosting)
                     return;
 
-                // TODO: Get actual shrine ID and type from the event
-                // For now using placeholder values
-                string shrineId = "shrine_" + UnityEngine.Random.Range(0, 1000);
-                int shrineType = 0; // Will need to determine type from game
+                // Quantize position to whole units for a stable, cross-machine key.
+                int qx = (int)System.Math.Round((double)position.x);
+                int qy = (int)System.Math.Round((double)position.y);
+                int qz = (int)System.Math.Round((double)position.z);
+                string shrineId = $"{qx}_{qy}_{qz}";
 
-                MelonLogger.Msg($"[Host] Broadcasting shrine use: {shrineId} (type {shrineType})");
+                MelonLogger.Msg($"[Host] Broadcasting shrine use: id={shrineId} type={shrineType}");
 
-                // Get the host player UUID
-                var myUuid = lobbyContext.GetMyself().UUID;
+                var myself = lobbyContext.GetMyself();
+                if (myself == null)
+                {
+                    MelonLogger.Error("[Host] GetMyself() returned null — shrine use cannot be synced to clients.");
+                    return;
+                }
 
+                var myUuid = myself.UUID;
                 var packet = new SendShrineUsePacket(shrineId, myUuid, shrineType);
-                
-                // Broadcast to all connected clients
+
                 foreach (var player in lobbyContext.GetPlayers())
                 {
                     if (player.Connection != null)
