@@ -2,50 +2,60 @@ using MelonLoader;
 using Multibonk.Game.Diagnostics;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
+using Multibonk.Networking.Comms.Multibonk.Networking.Comms;
 using Multibonk.Networking.Lobby;
 
 namespace Multibonk.Game.Handlers.NetworkNotify
 {
     /// <summary>
-    /// Handles broadcasting map tile reveals from host to all clients
-    /// Only runs on the host
+    /// Routes map fog reveals onto the network in both directions.
+    ///
+    ///   Host: fires MapTileRevealedEvent → broadcasts SendMapRevealPacket to all clients.
+    ///   Client: fires MapTileRevealedEvent → sends SendClientMapRevealPacket to the host,
+    ///     which applies it and relays it to the other clients.
+    ///
+    /// MapRevealEventHandler and MapRevealServerPacketHandler together close the full loop
+    /// so every player's map converges on the union of all players' explored areas.
     /// </summary>
     public class MapRevealEventHandler : GameEventHandler
     {
-        private readonly LobbyContext lobbyContext;
+        private readonly LobbyContext _lobbyContext;
+        private readonly NetworkService _network;
 
-        public MapRevealEventHandler(LobbyContext lobbyContext)
+        public MapRevealEventHandler(LobbyContext lobbyContext, NetworkService network)
         {
-            this.lobbyContext = lobbyContext;
+            _lobbyContext = lobbyContext;
+            _network = network;
 
-            // Subscribe to map tile reveal events
             GameEvents.MapTileRevealedEvent += OnMapTileRevealed;
         }
 
         private void OnMapTileRevealed(int tileX, int tileY)
         {
-            // Only host broadcasts map reveals
-            if (!LobbyPatchFlags.IsHosting)
-                return;
-
-            MelonLogger.Msg($"[Host] Broadcasting map tile reveal: ({tileX}, {tileY})");
-
-            // Create packet
-            var packet = new SendMapRevealPacket(tileX, tileY);
-
-            // Send to all connected players
-            foreach (var player in lobbyContext.GetPlayers())
+            if (LobbyPatchFlags.IsHosting)
             {
-                if (player.Connection != null)
+                // Host: broadcast to all connected clients.
+                MelonLogger.Msg($"[Host] Broadcasting map tile reveal: ({tileX}, {tileY})");
+
+                var packet = new SendMapRevealPacket(tileX, tileY);
+                foreach (var player in _lobbyContext.GetPlayers())
                 {
-                    player.Connection.EnqueuePacket(packet);
+                    player.Connection?.EnqueuePacket(packet);
                 }
+                SyncTelemetry.RecordSent(SyncChannel.MapReveal);
             }
-            SyncTelemetry.RecordSent(SyncChannel.MapReveal);
+            else
+            {
+                // Client: forward to the host (MapRevealServerPacketHandler handles it there).
+                DebugLogger.Log($"[Client] Sending map reveal to host: ({tileX}, {tileY})");
+                _network.GetClientService().Enqueue(new SendClientMapRevealPacket(tileX, tileY));
+                // SyncTelemetry intentionally NOT recorded: client->host direction would
+                // corrupt the host-sent vs client-applied comparison in the desync detector.
+            }
         }
 
         /// <summary>
-        /// Sends all currently revealed tiles to a specific player (used when they join)
+        /// Sends all currently revealed tiles to a specific player (used when they join).
         /// </summary>
         public void SyncRevealedTilesToPlayer(Connection connection, int[] tileXCoords, int[] tileYCoords)
         {
