@@ -52,7 +52,10 @@ namespace Multibonk.UserInterface.Window
                 ? new GUIStyle(CustomStyles.LabelStyle) { normal = { textColor = CustomStyles.Accent } }
                 : CustomStyles.LabelStyle;
 
-            GUI.Label(new Rect(x, y, width, 18), player.Name, nameStyle);
+            string nameLabel = player.Level > 1
+                ? $"{player.Name}  Lv.{player.Level}"
+                : player.Name;
+            GUI.Label(new Rect(x, y, width, 18), nameLabel, nameStyle);
 
             // My own bar reads live game health; other players use synced values
             float currentHealth = player.CurrentHealth;

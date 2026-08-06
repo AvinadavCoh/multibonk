@@ -2,6 +2,7 @@ using MelonLoader;
 using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Packet.Base.Multibonk.Networking.Comms;
+using Multibonk.Networking.Lobby;
 
 namespace Multibonk.Networking.Comms.Client.Handlers
 {
@@ -19,8 +20,16 @@ namespace Multibonk.Networking.Comms.Client.Handlers
 
             MelonLogger.Msg($"Player {packet.PlayerId} leveled up to level {packet.NewLevel}!");
 
-            // Here we would show a level up notification or update UI
-            // For now, we just log it
+            // Update the player's level in LobbyContext so the Players HUD can display it.
+            var lobby = LobbyPatchFlags.CurrentLobby;
+            if (lobby == null)
+                return;
+
+            var player = lobby.GetPlayer(packet.PlayerId);
+            if (player != null)
+            {
+                player.Level = packet.NewLevel;
+            }
         }
     }
 }
