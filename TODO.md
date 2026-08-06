@@ -49,14 +49,21 @@ was a real bug (every patch ran twice).
 |---|---|---|
 | Map seed | `MapSeedPatches.cs` | `GamePatchFlags.Seed` was sent but never applied — everyone got a different map. Now forced into `MapGenerationController` (testSeed/mapSeed), `RsgController.SetCustomSeed` and `Random.InitState`, varied per stage. |
 | Summoner spawns | `EnemySyncPatches.cs` | v1.0.69 split `SpawnEnemy` into a 7-param (position) and 5-param (summonerId) overload. The 5-param path drives most stage spawning; blocked on clients, broadcast by host. |
-| Enemy death (host side) | `EnemySyncPatches.cs` | `Kill()` became `Kill(string)` plus an `EnemyDied` overload, which silently killed the old by-name lookup. Now overload-aware. **Client side is still a stub — see below.** |
+| Enemy death (host side) | `EnemySyncPatches.cs` | `Kill()` became `Kill(string)` plus an `EnemyDied` overload, which silently killed the old by-name lookup. Now overload-aware. |
+| Enemy death (client side) | `EnemyDeathPacketHandler.cs`, `EnemyIdMapper.cs` | `TryGetEnemy` resolves the host enemy ID to the client's `Enemy` instance; `Kill("network")` runs the full death path (animation, dissolve). `ItemDropPatches` blocks client loot spawns so pickups don't duplicate. `SyncTelemetry.RecordApplied(EnemyDeath)` is called on success so the desync detector tracks it. |
+| Enemy health (client side) | `EnemyHealthUpdatePacketHandler.cs` | Sets `enemy.maxHp` before `enemy.hp` (avoids clamping hp against the old max). Does **not** call `Kill()` even at zero — the host issues a separate death packet; double-killing would double-fire `EnemyDied()`. Boss HP bars update automatically because `Il2Cpp.EnemyHpBar.Update()` polls `enemy.hp` every frame — no additional sync needed. |
 | Boss detection | `EnemySyncPatches.cs`, `BossSyncPatches.cs` | Spawn flag alone never identified bosses; `EnemyData.isBoss` is checked too, and the raw `EEnemyFlag` rides in `EnemySpawnPacket`. `EEnemyFlag`: None=0, Elite=1, Boss=2, StageBoss=4, Challenge=8, SummonerMiniboss=16, FinalBoss=32. |
+| Final-boss spawner sync | `BossSyncPatches.cs` (`BossSpawnerFinalInteractPatch`) | `InteractableBossSpawnerFinal.Interact` is patched alongside the regular `InteractableBossSpawner`. Host broadcasts `TriggerBossSpawnerActivate(position, spawnerType=1)`; clients find the nearest spawner of either type and call `Interact()` through `AllowNetworkInteract`. |
 | Enemy cache | `EnemyCachePreloader.cs` | Scrapes `EnemyManager` + `SummonerController` so clients hold every `EnemyData` the host might spawn. Previously the client cached types 4/8/25/28 while the host spawned 3/12/13. |
 | Stage timeline | `WaveProgressionPatches.cs` | Megabonk has **no numbered waves**. Progression is `SummonerController` (via `EnemyManager.Instance.summonerController`) ticking a `StageTimeline`. Host broadcasts `StartEvent(eventIndex)` and `StartFinalSwarm()`; clients block local ticks and replay. |
-| World pickups | `ItemDropPatches.cs` | All drops go through `PickupManager.SpawnPickup(EPickup, Vector3, int value, bool, float)` / `DespawnPickup(Pickup)`. Host broadcasts spawn (type/pos/value) + removal; clients suppress local RNG drops. |
-| Fog of war | `MinimapSyncPatches.cs` | Fog is `FullMap.QueueRevealFog(Vector3)`. Host broadcasts positions throttled to ~2 units of movement, packed into TileX/TileY. |
-| Shared XP/gold | `PlayerXpPatches.cs`, `PlayerGoldPatches.cs` | Now bidirectional (RoR2-style). Clients report gains via new client-sent packets (XP=5, GOLD=6); host applies and relays. Suppression flags prevent rebroadcast loops. |
+| World pickups | `ItemDropPatches.cs` | All drops go through `PickupManager.SpawnPickup` / `DespawnPickup`. Host→client: broadcasts spawn (type/pos/value) + removal. Client→host: when the local player consumes a host-spawned pickup, `DespawnPickupPatch` fires `TriggerClientPickupConsumed(hostId)` → `ItemPickedUpEventHandler` sends `SendClientPickupConsumedPacket` → `PickupConsumedServerPacketHandler` despawns the host copy and relays `ITEM_PICKED_UP` to all clients. |
+| Fog of war | `MinimapSyncPatches.cs` | Bidirectional. `FullMap.QueueRevealFog` is patched on both sides with the same ~2-unit throttle. Host→client: `SendMapRevealPacket`. Client→host: `SendClientMapRevealPacket` → `MapRevealServerPacketHandler` applies on host and relays to other clients. Loop suppression via `ApplyingNetworkReveal`. |
+| Shrine/chest identity | `InteractableSyncPatches.cs`, `ShrineUseEventHandler.cs`, `ShrineUsePacketHandler.cs`, `ChestOpenPacketHandler.cs` | ID is the world position quantized to whole units (`Math.Round`, formatted as `"x_y_z"`). The old `"shrine_" + Random.Range(0,1000)` placeholder is removed. Clients scan all scene instances of the shrine type (or `InteractableChest`), re-quantize each position, and call `Interact()` on the match via `ApplyingNetworkShrine`/`ApplyingNetworkChest` to suppress re-broadcast. See Known gaps for the rounding-boundary risk. |
+| Multiplayer run-end gating | `RunCoordinator.cs`, `PlayerHealthSyncPatches.cs` (`GameOverPatch`), `RunTimeoutPatches.cs`, `LobbyService.cs` | `GameOverPatch` is enabled. `GameManager.OnDied()` is suppressed on all machines until the host confirms every lobby player is dead, then broadcasts `RUN_OVER`. Dead players stay in the game world while others are alive. `RunTimeoutPatches` opens the gate after 15 s if `RUN_OVER` never arrives (host-crash escape hatch; client only). `LobbyService` subscribes to `ServerProtocol.OnClientDisconnected` and calls `TryEndRun` after removing the dropped player, so a client disconnect doesn't soft-lock surviving players. `RunCoordinator.Reset()` / `RunReset` event clears all per-run state on restart. |
+| Player death | `PlayerDeathPacketHandler.cs`, `PlayerDiedReportEventHandler.cs`, `PlayerDeathEventHandler.cs` | Host marks itself dead and checks the all-dead condition via `PlayerDeathEventHandler`. Clients send `PLAYER_DIED_PACKET` upstream; `PlayerDiedServerPacketHandler` marks them dead in `LobbyContext` and calls `TryEndRun`. `PlayerDeathPacketHandler` on each client marks the dead player's `LobbyContext` entry (`IsDead = true`) for lobby-state consistency. No remote death visual — see Known gaps. |
+| Shared XP/gold | `PlayerXpPatches.cs`, `PlayerGoldPatches.cs` | Bidirectional (RoR2-style). Clients report gains via client-sent packets (XP=5, GOLD=6); host applies and relays. Suppression flags prevent rebroadcast loops. |
 | Player health reporting | `PlayerHealthSyncPatches.cs` | Clients report current/max health (packet 7); `LobbyContext` caches it for the Players HUD. |
+| Level display | `PlayerLevelUpPacketHandler.cs`, `LobbyContext.cs` (`LobbyPlayer.Level`), `PlayerHealthHUD.cs` | Level-up packets update `LobbyPlayer.Level`; the HUD renders `"Name  Lv.N"` when level > 1. |
 | Clock sync | `TimeSyncPatches.cs` | `MyTime.stageTimer` / `runTimer` broadcast every 2s, applied client-side only past 0.3s drift, never over a client's own pause. |
 | Pause sync | `TimeSyncPatches.cs` | Host pause/unpause propagates. A client's own local pause is tracked separately so the network only unpauses what the network paused. |
 | Restart cleanup | `RestartPatches.cs` | Clears mod state on scene load/restart — fixes the blank screen after the host died and started a new run. |
@@ -66,29 +73,12 @@ was a real bug (every patch ran twice).
 
 ## Known gaps
 
-### 🔴 Client packet handlers that only log
-These receive a valid packet and do nothing to the game world. The README currently
-overstates these as working.
-
-| Handler | Missing |
+| Gap | Details |
 |---|---|
-| `EnemyDeathPacketHandler` | Never despawns the enemy. Host deaths broadcast fine and `EnemyIdMapper` has the GameObject mapping needed — the call to remove it was never written. Dead enemies likely linger on clients. |
-| `EnemyHealthUpdatePacketHandler` | Never applies health. Enemy HP bars on clients don't reflect host damage. |
-| `PlayerDeathPacketHandler` | No death visual, no lobby bookkeeping, no all-players-dead check. |
-| `PlayerLevelUpPacketHandler` | Log only. Cosmetic — no notification UI. |
-
-### 🔴 Other known-incomplete
-- **`ShrineUseEventHandler` sends a placeholder ID** — `"shrine_" + Random.Range(0,1000)` and
-  hardcoded type 0. The client can't identify *which* shrine was used, so shrine sync can only
-  be accidentally correct.
-- **`GameOverPatch` is disabled** (`Prepare()` returns `false` in `PlayerHealthSyncPatches.cs`).
-  Game over still fires when any one player dies instead of when all are dead.
-- **No client→host map reveal** — areas the client explores stay fogged for the host. Needs a
-  new `ClientSentPacketId`.
-- **Client pickup consumption isn't reflected on the host** — visual only; the XP/gold values
-  themselves do sync.
-- **Boss health bar / phase transitions** — `BossSyncPatches.cs:337`.
-- **Boss interactable spawners other than the bush.**
+| Position-key identity (shrine/chest) | Identity is `Math.Round(world_pos)` formatted as `"x_y_z"`. Two interactables within 0.5 units of each other produce the same key (wrong target activated). Positions near a .5 boundary are sensitive to floating-point non-determinism — if map generation produces subtly different floats on host vs client the key mismatches and the activation is silently skipped. Risk is low in practice (shrines and chests are spaced widely), but the first test session should include shrine use to confirm. |
+| Boss phase transitions | `Il2Cpp.FinalFightController.StartPhase(int)` / `currentPhase` exist in the API dump. Whether `StartPhase` is triggered by `FixedUpdate` polling `boss.hp` or by an `OnEnemyDamage` event cannot be determined from the API alone. If it polls `boss.hp` (the more likely pattern), phases may already sync correctly because `EnemyHealthUpdatePacketHandler` keeps `hp` aligned on clients. If it is event-driven, phases will diverge silently. Adding a phase sync packet without confirming the trigger risks double-transitions on the client. Left for investigation with a running game. |
+| Remote player death visual | `PlayerDeathPacketHandler` sets `IsDead = true` on the lobby seat (lobby bookkeeping) but spawns no corpse or death effect. The API dump does not expose a safe remote-death entry point. |
+| GameOverPatch resolution failure | If `Il2Cpp.GameManager` or `GameManager.OnDied` cannot be resolved at startup, `GameOverPatch.Prepare()` returns false and logs `MelonLogger.Error`. Run-end gating is silently disabled — every player death immediately ends the run (single-player behaviour restored). Check the startup log for `[GameOverPatch] ... DISABLED` before trusting multiplayer game-over to work. |
 
 ---
 
@@ -104,8 +94,8 @@ enemy and pickup counts, plus its sent counters. The client diffs that against i
 logs the result.
 
 The client-side counter is only incremented *after* the game call succeeds, never on receipt.
-That's the whole point: a channel the host keeps sending on while the client applies nothing is
-a handler that does nothing.
+That's the whole point: a channel the host keeps sending on while the client applies nothing
+points to a handler that is silently failing.
 
 **Reading the log** (`MultibonkLogs/Multibonk_*.log`, grep for `[SyncCheck]`):
 
@@ -116,9 +106,13 @@ a handler that does nothing.
 [SyncCheck]   enemies: host 47 / local ledger 12 / local mappings 12
 ```
 
-- `handler appears to be a no-op` — the client never applies this channel at all. Expect this
-  for `EnemyDeath` on the first run: `EnemyDeathPacketHandler` is a known stub and is
-  **deliberately left un-instrumented** so the detector proves it.
+- `handler appears to be a no-op` — the client's applied counter for that channel never
+  incremented. `EnemyDeathPacketHandler` is now fully instrumented, so seeing
+  `EnemyDeath: applied 0` on the first run does **not** mean the handler is a stub — it means
+  the apply path is failing. Check for `[EnemyDeathPacketHandler] No mapped enemy` warnings in
+  the same log window; if every death packet produces that warning, `EnemyIdMapper` is not
+  registering spawns correctly and the spawn handler is the real problem. If the warnings are
+  absent, look for exceptions in the catch block.
 - `N never applied` — packets are arriving but the apply path is bailing out (guard, null, catch).
 - `applied twice?` — a local action wasn't blocked, so it happens once locally and once from
   the host packet.
@@ -132,23 +126,50 @@ a handler that does nothing.
 **Caveat:** the detector reports, it never corrects. Having it paper over a failure would
 defeat it.
 
+---
+
 ## Verification debt
 
-Nothing since the Nov 2025 session has been tested with two real players. The mod compiles
-and the class/method names were read out of the v1.0.69 interop assembly, which catches
-*renames* but not wrong assumptions about *when* a method is called or what blocking it does.
+The codebase is now feature-complete for a two-player session. Nothing has been tested with
+two real players. Every feature after the Nov 2025 session was written against `Assembly-CSharp.dll`
+metadata, which catches *renames* but not wrong assumptions about *when* a method is called or
+what blocking it does.
 
-**Two-player checklist (none of this is confirmed):**
-1. Both players get the same map — same terrain, same shrine and chest positions.
-2. Swarm / miniboss alerts fire at the same moment on both screens.
-3. Final swarm starts simultaneously.
-4. XP/gold orbs and powerups appear at the same positions for both players.
-5. Orbs collected by the host disappear on the client.
-6. Areas explored by the host reveal on the client's map.
-7. Stage/run timer stays within ~0.3s across players over a full run.
-8. Host pausing pauses the client; host unpausing resumes it; the client's own upgrade screen
-   doesn't get force-unpaused.
-9. Enemies killed on the host disappear on the client *(expected to FAIL — stub handler)*.
+**The next step is a single two-player session. Read the `[SyncCheck]` log afterwards — that
+log, not this list, is the real backlog.**
+
+**What is most likely to break (watch these first):**
+
+1. **Position-key identity** — use a shrine and a chest during the session. If activation
+   silently fails (no effect on either screen), the quantized "x_y_z" key mismatched. Check
+   the log for `[Client] No ... found at position` warnings from `ShrineUsePacketHandler` or
+   `ChestOpenPacketHandler`.
+
+2. **Run-end gating** — let both players die (in sequence, not simultaneously). The game-over
+   screen must not appear until the second player is dead. Also test a mid-run disconnect:
+   drop one client's connection while the other is alive; the run should continue normally and
+   end when the surviving player dies (or also disconnects).
+
+3. **Enemy despawn** — kill an enemy on the host. It should disappear on the client within a
+   frame. If it lingers, `TryGetEnemy` is missing the mapping — check that spawn packets are
+   arriving and that `EnemyIdMapper.RegisterMapping` is being called with a non-null `Enemy`
+   cast. The `[SyncCheck] EnemyDeath: applied 0` line plus `No mapped enemy` warnings together
+   confirm a mapping gap.
+
+4. **Boss phases** — reach the final boss. Monitor whether `FinalFightController.currentPhase`
+   advances on the client at the same thresholds. If phases are already correct (hp-polling
+   trigger) this is a free pass; if they diverge, a phase-sync packet will be needed.
+
+**Standard checks (carry over from before):**
+- Both players get the same map — same terrain, same shrine and chest positions.
+- Swarm / miniboss alerts fire at the same moment on both screens.
+- Final swarm starts simultaneously.
+- XP/gold orbs and powerups appear at the same positions for both players.
+- Orbs collected by either player disappear on the other's screen.
+- Areas explored by either player reveal on the other's map.
+- Stage/run timer stays within ~0.3s across players over a full run.
+- Host pausing pauses the client; host unpausing resumes it; the client's own upgrade screen
+  doesn't get force-unpaused.
 
 **If timeline events double-fire on clients**, check the log for
 `[Client] Blocked local timeline event` — the block prefix must run before the packet replay.
@@ -159,10 +180,11 @@ and the class/method names were read out of the v1.0.69 interop assembly, which 
 
 ## Suggested order of work
 
-1. Run one two-player session and read the `[SyncCheck]` output. That log, not this list, is
-   the real backlog — everything below is a guess until it exists.
-2. Fill in `EnemyDeathPacketHandler` — highest visible impact, and the mapping already exists.
-3. Give shrines a real identity (position-based ID would be enough) so shrine sync is correct.
-4. `EnemyHealthUpdatePacketHandler`, then player death handling / game-over gating.
-5. Client→host map reveal + pickup consumption packets.
-6. Boss health bar and phase sync.
+1. **Run one two-player session and read the `[SyncCheck]` output.** Pay particular attention
+   to the four high-risk areas above. That log is the real backlog — everything below is a
+   guess until it exists.
+2. If position-key identity fails for shrines or chests, switch from `Math.Round` to a
+   bucketed grid (e.g., floor to nearest 0.5) and re-test.
+3. If boss phases diverge, instrument `FinalFightController` to determine the trigger source,
+   then add a phase-sync packet only if it is event-driven.
+4. Add a remote death visual once an entry point can be identified safely from running logs.

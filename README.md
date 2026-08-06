@@ -23,16 +23,18 @@ confirmed in a real two-player session. See [TODO.md](TODO.md) for the full stat
 | Chest sync | ![OK](https://img.shields.io/badge/OK-green.svg) | Chest interactions broadcast to all players |
 | Map seed sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host seed forced into map generation so everyone gets the same terrain, shrines and chests |
 | Stage timeline sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Swarms, miniboss alerts and the final swarm replay from the host's timeline |
-| Item drops sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host broadcasts pickup type, position and value; clients suppress local RNG drops |
-| Minimap / fog sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host's explored areas reveal on client maps (not yet the other direction) |
+| Item drops sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Bidirectional — host broadcasts pickup spawns and removals; client pickup consumption notifies the host, which despawns its copy and relays the removal to other clients |
+| Minimap / fog sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Bidirectional — host reveals propagate to clients, client reveals propagate to the host (which applies them locally and relays to other clients) |
 | Shared XP & gold | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Bidirectional — client pickups count toward the shared pool (RoR2-style) |
 | Clock & pause sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Stage/run timers stay aligned; host pause propagates |
 | Player damage sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Damage and health changes reported to the host and shown on the Players HUD |
-| Shrine/Shop sync | ![Partial](https://img.shields.io/badge/Partial-orange.svg) | Broadcast works, but shrines are identified by a placeholder random ID |
-| Boss synchronization | ![Partial](https://img.shields.io/badge/Partial-orange.svg) | Spawning and boss detection work; health bar and phase transitions do not |
-| Enemy death sync | ![Broken](https://img.shields.io/badge/Broken-red.svg) | Host broadcasts deaths, but the client handler never despawns the enemy |
-| Enemy health sync | ![Broken](https://img.shields.io/badge/Broken-red.svg) | Packets arrive; client handler does not apply them |
-| Player death sync | ![Broken](https://img.shields.io/badge/Broken-red.svg) | Death events sync, but no visuals and game-over still fires on the first death |
+| Multiplayer run-end gating | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Run ends only when all lobby players are dead; dead players wait; 15 s escape hatch if the host crashes; client disconnects handled so a dropped player doesn't soft-lock others |
+| Enemy death sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host broadcasts deaths; client resolves the enemy via its mapping and calls `Kill("network")` to run the full death path |
+| Enemy health sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Packets arrive and are applied to `enemy.hp`/`enemy.maxHp`; boss HP bars update automatically each frame |
+| Player death sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Deaths are tracked in the lobby; dead players wait for the last player to fall before the game-over screen appears. No remote death visual (API limitation) |
+| Level display | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Player level shown next to the name in the Players HUD, updated by level-up packets |
+| Shrine/Shop sync | ![Untested](https://img.shields.io/badge/Untested-yellow.svg) | Host broadcasts shrine use with a position-based identity (`"x_y_z"` quantized key); client finds and activates the matching scene object |
+| Boss synchronization | ![Partial](https://img.shields.io/badge/Partial-orange.svg) | Spawning, boss detection, regular and final-boss spawners, and HP bars all sync; phase transitions are not yet implemented (see TODO) |
 | And much more planned! | ![Planned](https://img.shields.io/badge/Planned-orange.svg) | -|
 
 ## Getting Started
