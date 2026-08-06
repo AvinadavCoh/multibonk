@@ -13,11 +13,11 @@ namespace Multibonk.Game.Handlers.NetworkNotify
     {
         public BossSpawnerEventHandler(LobbyContext lobbyContext)
         {
-            GameEvents.BossSpawnerActivateEvent += (spawnerPosition) =>
+            GameEvents.BossSpawnerActivateEvent += (spawnerPosition, spawnerType) =>
             {
-                MelonLogger.Msg($"[Host] Broadcasting boss spawner activation at ({spawnerPosition.x:F2}, {spawnerPosition.y:F2}, {spawnerPosition.z:F2})");
+                MelonLogger.Msg($"[Host] Broadcasting boss spawner activation at ({spawnerPosition.x:F2}, {spawnerPosition.y:F2}, {spawnerPosition.z:F2}) type={spawnerType}");
 
-                var packet = new SendBossSpawnerActivatePacket(spawnerPosition);
+                var packet = new SendBossSpawnerActivatePacket(spawnerPosition, spawnerType);
                 foreach (var player in lobbyContext.GetPlayers())
                 {
                     player.Connection?.EnqueuePacket(packet);

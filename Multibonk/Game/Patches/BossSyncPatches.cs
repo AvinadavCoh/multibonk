@@ -184,7 +184,7 @@ namespace Multibonk.Game.Patches
                             {
                                 var position = (UnityEngine.Vector3)positionProp.GetValue(transform);
                                 MelonLogger.Msg($"[Host] Boss spawner activated at ({position.x:F2}, {position.y:F2}, {position.z:F2})");
-                                GameEvents.TriggerBossSpawnerActivate(position);
+                                GameEvents.TriggerBossSpawnerActivate(position, 0);
                             }
                         }
                     }
@@ -334,14 +334,117 @@ namespace Multibonk.Game.Patches
             }
         }
 
-        // TODO: Add boss health bar sync when we find the HealthBarUi class
-        // TODO: Add boss phase transition sync if phases exist
-        
+        // NOTE on boss health bar sync (was TODO):
+        //   Il2Cpp.EnemyHpBar has a direct `Enemy enemy` reference and an `Update()` method
+        //   that polls enemy.hp every frame. Since EnemyHealthUpdatePacketHandler now writes
+        //   enemy.hp / enemy.maxHp directly on clients, boss HP bars update automatically.
+        //   No additional sync code is needed.
+
+        // NOTE on boss phase transitions (was TODO):
+        //   Boss phases exist only in Il2Cpp.FinalFightController (final boss) via
+        //   `currentPhase` / `StartPhase(int)`. Whether StartPhase is triggered by
+        //   FixedUpdate polling boss.hp or by OnEnemyDamage events cannot be determined
+        //   from the API alone. If it polls boss.hp (the most likely pattern), phases
+        //   already sync correctly because EnemyHealthUpdatePacketHandler keeps boss.hp
+        //   in sync. Adding a phase sync packet without knowing the exact trigger would
+        //   risk double-phase-transitions. Left for investigation with running game logs.
+
+        /// <summary>
+        /// Patches InteractableBossSpawnerFinal.Interact to sync final-boss spawner activation.
+        /// This is the same host-authoritative pattern used by BossSpawnerInteractPatch for the
+        /// regular (bush) boss spawner: host broadcasts the world-space position and clients
+        /// find the nearest spawner of either type and call Interact() through AllowNetworkInteract.
+        /// </summary>
+        [HarmonyPatch]
+        class BossSpawnerFinalInteractPatch
+        {
+            static bool Prepare()
+            {
+                return true;
+            }
+
+            static System.Reflection.MethodBase TargetMethod()
+            {
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+
+                if (assembly == null)
+                {
+                    MelonLogger.Warning("Could not find Assembly-CSharp for BossSpawnerFinalInteractPatch");
+                    return null;
+                }
+
+                var spawnerType = assembly.GetType("Il2Cpp.InteractableBossSpawnerFinal");
+                if (spawnerType == null)
+                {
+                    MelonLogger.Warning("Could not find InteractableBossSpawnerFinal type - patch disabled");
+                    return null;
+                }
+
+                var interactMethod = spawnerType.GetMethod("Interact",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                if (interactMethod == null)
+                {
+                    MelonLogger.Warning("Could not find Interact on InteractableBossSpawnerFinal - patch disabled");
+                    return null;
+                }
+
+                MelonLogger.Msg("Found InteractableBossSpawnerFinal.Interact for patching");
+                return interactMethod;
+            }
+
+            static bool Prefix(object __instance)
+            {
+                if (!LobbyPatchFlags.InMultiplayer)
+                    return true; // Single player — no interference
+
+                if (LobbyPatchFlags.IsHosting)
+                {
+                    try
+                    {
+                        var instanceType = __instance.GetType();
+                        var transform = instanceType.GetProperty("transform")?.GetValue(__instance);
+                        if (transform != null)
+                        {
+                            var positionProp = transform.GetType().GetProperty("position");
+                            if (positionProp != null)
+                            {
+                                var position = (UnityEngine.Vector3)positionProp.GetValue(transform);
+                                MelonLogger.Msg($"[Host] Final boss spawner activated at ({position.x:F2}, {position.y:F2}, {position.z:F2})");
+                                GameEvents.TriggerBossSpawnerActivate(position, 1);
+                            }
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MelonLogger.Error($"Error broadcasting final boss spawner activation: {ex.Message}");
+                    }
+                    return true;
+                }
+                else
+                {
+                    if (AllowNetworkInteract)
+                    {
+                        MelonLogger.Msg("[Client] Allowing network-triggered final boss spawner interaction");
+                        return true;
+                    }
+
+                    MelonLogger.Msg("[Client] Final boss spawner interaction blocked - waiting for host activation");
+                    return false;
+                }
+            }
+        }
+
         // NOTE: Boss spawning is now fully synchronized:
-        // 1. Only host can activate InteractableBossSpawner
-        // 2. Host's SpawnBoss call is patched and broadcasts to clients
-        // 3. Clients receive EnemySpawnPacket with IsBoss=true
-        // 4. Boss health syncs via EnemySyncEventHandler (10% threshold)
-        // 5. Boss death syncs immediately to all clients
+        // 1. Only host can activate InteractableBossSpawner (regular) and
+        //    InteractableBossSpawnerFinal (final boss)
+        // 2. Host broadcasts position via BossSpawnerActivate packet
+        // 3. Clients find the nearest spawner of either type and Interact() through
+        //    AllowNetworkInteract so the patch does not re-broadcast
+        // 4. Clients receive EnemySpawnPacket with IsBoss=true
+        // 5. Boss health syncs via EnemySyncEventHandler (10% threshold) and is
+        //    applied by EnemyHealthUpdatePacketHandler; HP bars update automatically
+        // 6. Boss death syncs immediately to all clients
     }
 }

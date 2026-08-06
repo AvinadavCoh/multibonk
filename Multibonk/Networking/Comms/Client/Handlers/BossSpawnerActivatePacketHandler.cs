@@ -24,14 +24,20 @@ namespace Multibonk.Networking.Comms.Client.Handlers
             try
             {
                 var packet = new BossSpawnerActivatePacket(msg);
-                
-                MelonLogger.Msg($"[Client] Received boss spawner activation at position ({packet.Position.x}, {packet.Position.y}, {packet.Position.z})");
+
+                // Map the type byte to the exact C# class name so we only search spawners
+                // of the same type the host actually activated (0=regular, 1=final).
+                string targetTypeName = packet.SpawnerType == 1
+                    ? "Il2Cpp.InteractableBossSpawnerFinal"
+                    : "Il2Cpp.InteractableBossSpawner";
+
+                MelonLogger.Msg($"[Client] Received boss spawner activation: type={packet.SpawnerType} ({targetTypeName}) " +
+                                $"at ({packet.Position.x}, {packet.Position.y}, {packet.Position.z})");
 
                 GameDispatcher.Enqueue(() =>
                 {
                     try
                     {
-                        // Find InteractableBossSpawner type via reflection
                         var assembly = AppDomain.CurrentDomain.GetAssemblies()
                             .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
 
@@ -41,41 +47,43 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                             return;
                         }
 
-                        var bossSpawnerType = assembly.GetType("Il2Cpp.InteractableBossSpawner");
-                        if (bossSpawnerType == null)
-                        {
-                            MelonLogger.Error("[Client] Could not find InteractableBossSpawner type");
-                            return;
-                        }
-
-                        // Find all boss spawners in scene
                         var findMethod = typeof(UnityEngine.Object).GetMethod("FindObjectsOfType",
                             new[] { typeof(Type) });
-                        
+
                         if (findMethod == null)
                         {
                             MelonLogger.Error("[Client] Could not find FindObjectsOfType method");
                             return;
                         }
 
-                        var spawners = findMethod.Invoke(null, new object[] { bossSpawnerType });
-                        if (spawners == null)
+                        // Search ONLY among spawners of the type the host activated.
+                        var spawnerType = assembly.GetType(targetTypeName);
+                        if (spawnerType == null)
                         {
-                            MelonLogger.Warning("[Client] No boss spawners found in scene");
+                            MelonLogger.Error($"[Client] Could not find spawner type '{targetTypeName}'");
                             return;
                         }
 
-                        // Convert to array and find closest spawner to packet position
-                        var spawnersArray = ((Array)spawners).Cast<object>().ToArray();
-                        MelonLogger.Msg($"[Client] Found {spawnersArray.Length} boss spawners in scene");
+                        var spawners = findMethod.Invoke(null, new object[] { spawnerType });
+                        if (spawners == null)
+                        {
+                            MelonLogger.Error($"[Client] FindObjectsOfType returned null for '{targetTypeName}'");
+                            return;
+                        }
+
+                        var interactMethod = spawnerType.GetMethod("Interact");
+                        if (interactMethod == null)
+                        {
+                            MelonLogger.Error($"[Client] No Interact() method on '{targetTypeName}'");
+                            return;
+                        }
 
                         object closestSpawner = null;
                         float closestDistance = float.MaxValue;
 
-                        foreach (var spawner in spawnersArray)
+                        foreach (var spawner in ((Array)spawners).Cast<object>())
                         {
-                            // Get transform and position
-                            var transform = bossSpawnerType.GetProperty("transform")?.GetValue(spawner);
+                            var transform = spawnerType.GetProperty("transform")?.GetValue(spawner);
                             if (transform == null) continue;
 
                             var positionProp = transform.GetType().GetProperty("position");
@@ -93,26 +101,18 @@ namespace Multibonk.Networking.Comms.Client.Handlers
 
                         if (closestSpawner == null)
                         {
-                            MelonLogger.Error("[Client] Could not find boss spawner near packet position");
+                            MelonLogger.Error($"[Client] Could not find any '{targetTypeName}' near packet position");
                             return;
                         }
 
                         if (closestDistance > 5f)
                         {
-                            MelonLogger.Warning($"[Client] Closest boss spawner is {closestDistance}m away - might be wrong spawner");
+                            MelonLogger.Warning($"[Client] Closest {targetTypeName} is {closestDistance:F2}m away - might be wrong spawner");
                         }
 
-                        // Call Interact() method on the boss spawner
-                        var interactMethod = bossSpawnerType.GetMethod("Interact");
-                        if (interactMethod == null)
-                        {
-                            MelonLogger.Error("[Client] Could not find Interact method on InteractableBossSpawner");
-                            return;
-                        }
+                        MelonLogger.Msg($"[Client] Activating {targetTypeName} (distance: {closestDistance:F2}m)");
 
-                        MelonLogger.Msg($"[Client] Activating boss spawner (distance: {closestDistance:F2}m)");
-                        
-                        // Allow network interaction
+                        // Allow network interaction — both patches check this flag before blocking
                         Game.Patches.BossSyncPatches.AllowNetworkInteract = true;
                         object result = null;
                         try
@@ -123,10 +123,10 @@ namespace Multibonk.Networking.Comms.Client.Handlers
                         {
                             Game.Patches.BossSyncPatches.AllowNetworkInteract = false;
                         }
-                        
+
                         if (result is bool success && success)
                         {
-                            MelonLogger.Msg("[Client] ✓ Boss spawner activated successfully");
+                            MelonLogger.Msg("[Client] Boss spawner activated successfully");
                         }
                         else
                         {

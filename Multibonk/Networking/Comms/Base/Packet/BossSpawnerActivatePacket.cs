@@ -11,18 +11,27 @@ namespace Multibonk.Networking.Comms.Base.Packet
     {
         public readonly byte Id = (byte)ServerSentPacketId.BOSS_SPAWNER_ACTIVATE;
 
-        public SendBossSpawnerActivatePacket(Vector3 position)
+        /// <summary>
+        /// Wire layout (after packet-id byte):
+        ///   float x, float y, float z  — world position (12 bytes)
+        ///   byte  spawnerType           — 0 = InteractableBossSpawner (regular/bush)
+        ///                                 1 = InteractableBossSpawnerFinal
+        /// </summary>
+        public SendBossSpawnerActivatePacket(Vector3 position, byte spawnerType)
         {
             Message.WriteByte(Id);
             Message.WriteFloat(position.x);
             Message.WriteFloat(position.y);
             Message.WriteFloat(position.z);
+            Message.WriteByte(spawnerType);
         }
     }
 
     internal class BossSpawnerActivatePacket
     {
         public Vector3 Position { get; private set; }
+        /// <summary>0 = regular (InteractableBossSpawner), 1 = final (InteractableBossSpawnerFinal)</summary>
+        public byte SpawnerType { get; private set; }
 
         public BossSpawnerActivatePacket(IncomingMessage msg)
         {
@@ -31,6 +40,7 @@ namespace Multibonk.Networking.Comms.Base.Packet
                 msg.ReadFloat(),
                 msg.ReadFloat()
             );
+            SpawnerType = msg.ReadByte();
         }
     }
 }
