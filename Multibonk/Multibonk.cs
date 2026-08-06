@@ -77,6 +77,7 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, TimeSyncEventHandler>();
             services.AddSingleton<IGameEventHandler, PauseSyncEventHandler>();
             services.AddSingleton<IGameEventHandler, StateDigestEventHandler>(); // desync detector
+            services.AddSingleton<IGameEventHandler, PlayerDiedReportEventHandler>();
             services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
@@ -91,6 +92,9 @@ namespace Multibonk
             services.AddSingleton<IServerPacketHandler, PlayerXpGainedServerPacketHandler>();
             services.AddSingleton<IServerPacketHandler, PlayerGoldGainedServerPacketHandler>();
             services.AddSingleton<IServerPacketHandler, PlayerHealthServerPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, PlayerDiedServerPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, MapRevealServerPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, PickupConsumedServerPacketHandler>();
 
             services.AddSingleton<IClientPacketHandler, LobbyPlayerListPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerSelectedCharacterPacketHandler>();
@@ -117,6 +121,7 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, BossSpawnerActivatePacketHandler>();
             services.AddSingleton<IClientPacketHandler, StageTransitionPacketHandler>();
             services.AddSingleton<IClientPacketHandler, TimeSyncPacketHandler>();
+            services.AddSingleton<IClientPacketHandler, RunOverPacketHandler>();
             services.AddSingleton<IClientPacketHandler, StateDigestPacketHandler>(); // desync detector
             services.AddSingleton<IClientPacketHandler, PauseGamePacketHandler>();
             services.AddSingleton<IClientPacketHandler, UnpauseGamePacketHandler>();

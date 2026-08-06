@@ -32,6 +32,8 @@ namespace Multibonk.Networking.Comms.Base
        STAGE_TRANSITION = 26,
        TIME_SYNC = 27,
        STATE_DIGEST = 28,
+       RUN_OVER = 29,
+       BOSS_HEALTH = 30,
     }
 
     public enum ClientSentPacketId : byte
@@ -43,6 +45,9 @@ namespace Multibonk.Networking.Comms.Base
         PLAYER_ROTATE_PACKET = 4,
         PLAYER_XP_GAINED_PACKET = 5,
         PLAYER_GOLD_GAINED_PACKET = 6,
-        PLAYER_HEALTH_PACKET = 7
+        PLAYER_HEALTH_PACKET = 7,
+        MAP_REVEAL_PACKET = 8,
+        PICKUP_CONSUMED_PACKET = 9,
+        PLAYER_DIED_PACKET = 10
     }
 }

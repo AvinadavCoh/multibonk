@@ -13,6 +13,33 @@ namespace Multibonk.Game.Patches
     public static class RestartPatches
     {
         /// <summary>
+        /// Everything that must be forgotten when a run ends, in one place.
+        ///
+        /// The three entry points below (scene load, retry, restart) used to clear
+        /// different subsets - scene load skipped pickups and fog - so state leaked
+        /// between runs depending on how the previous one ended. On the host a stale
+        /// pickup id makes DespawnPickupPatch drop a legitimate despawn broadcast.
+        ///
+        /// Telemetry and the run coordinator reset on BOTH sides; the rest is host-only
+        /// because only the host owns that state.
+        /// </summary>
+        private static void ClearRunState()
+        {
+            SyncDigestPatches.Reset();
+            Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
+            RunCoordinator.Reset();
+
+            if (!LobbyPatchFlags.IsHosting)
+                return;
+
+            GamePatchFlags.ClearGameState();
+            EnemyDataCache.Clear();
+            EnemyIdMapper.Clear();
+            ItemDropPatches.Clear();
+            MinimapSyncPatches.Clear();
+        }
+
+        /// <summary>
         /// Patches SceneManager.LoadScene to clear game state when loading a new scene.
         /// </summary>
         [HarmonyPatch(typeof(SceneManager), "LoadScene", new System.Type[] { typeof(string), typeof(LoadSceneMode) })]
@@ -26,18 +53,8 @@ namespace Multibonk.Game.Patches
                 // Assuming "MainMenu" is the name of the menu scene
                 if (sceneName.Contains("Menu") || sceneName.Contains("Map"))
                 {
-                    // Telemetry resets on BOTH sides - the client's ledger has to start a new
-                    // run at zero or every digest comparison after a restart is nonsense.
-                    SyncDigestPatches.Reset();
-                    Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
-
-                    if (LobbyPatchFlags.IsHosting)
-                    {
-                        MelonLogger.Msg("[RestartPatches] Host loading menu/map - clearing game state");
-                        GamePatchFlags.ClearGameState();
-                        EnemyDataCache.Clear();
-                        EnemyIdMapper.Clear();
-                    }
+                    MelonLogger.Msg("[RestartPatches] Loading menu/map - clearing run state");
+                    ClearRunState();
                 }
             }
         }
@@ -92,23 +109,11 @@ namespace Multibonk.Game.Patches
 
             static void Prefix()
             {
-                // Both sides, outside the host guard: a client that keeps its old counters
-                // would compare the new run's digests against last run's totals.
-                SyncDigestPatches.Reset();
-                Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
-
-                if (LobbyPatchFlags.IsHosting)
-                {
-                    MelonLogger.Msg("[RestartPatches] Host retrying game - clearing game state");
-                    GamePatchFlags.ClearGameState();
-                    EnemyDataCache.Clear();
-                    EnemyIdMapper.Clear();
-                    ItemDropPatches.Clear();
-                    MinimapSyncPatches.Clear();
-                }
+                MelonLogger.Msg("[RestartPatches] Retrying game - clearing run state");
+                ClearRunState();
             }
         }
-        
+
         /// <summary>
         /// Patches GameManager.Restart (if it exists) to clear game state.
         /// </summary>
@@ -159,20 +164,8 @@ namespace Multibonk.Game.Patches
 
             static void Prefix()
             {
-                // Both sides, outside the host guard: a client that keeps its old counters
-                // would compare the new run's digests against last run's totals.
-                SyncDigestPatches.Reset();
-                Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
-
-                if (LobbyPatchFlags.IsHosting)
-                {
-                    MelonLogger.Msg("[RestartPatches] Host restarting game - clearing game state");
-                    GamePatchFlags.ClearGameState();
-                    EnemyDataCache.Clear();
-                    EnemyIdMapper.Clear();
-                    ItemDropPatches.Clear();
-                    MinimapSyncPatches.Clear();
-                }
+                MelonLogger.Msg("[RestartPatches] Restarting game - clearing run state");
+                ClearRunState();
             }
         }
     }

@@ -23,7 +23,7 @@ namespace Multibonk.Game
         public static event Action InGamePauseEvent;
         public static event Action InGameUnpauseEvent;
 
-        public static event Action UseShrineEvent;
+        public static event Action<Vector3, int> UseShrineEvent;
 
         public static event Action<string, Vector3, int, int> SpawnDropEvent; // itemId, position, itemType, value
         public static event Action<string, ushort> ItemPickedUpEvent; // itemId, playerId
@@ -38,12 +38,20 @@ namespace Multibonk.Game
 
         public static event Action<int, int> MapTileRevealedEvent; // tileX, tileY
 
-        public static event Action<Vector3> BossSpawnerActivateEvent; // spawnerPosition
+        public static event Action<Vector3, byte> BossSpawnerActivateEvent; // spawnerPosition, spawnerType (0=regular, 1=final)
         public static event Action StageTransitionEvent; // portal activated
 
         public static event Action<float, float, bool> TimeSyncEvent; // stageTime, runTime, paused
 
         public static event Action<Diagnostics.SyncDigest> StateDigestEvent; // desync detector snapshot
+
+        /// <summary>
+        /// Fired by a client's DespawnPickupPatch when the local player consumes a network
+        /// pickup (one that was spawned by a host packet).  The payload is the host-assigned
+        /// wire id so the server can look up and despawn its own copy.
+        /// Only meaningful on the client side; event handlers must guard with !IsHosting.
+        /// </summary>
+        public static event Action<string> ClientPickupConsumedEvent; // hostId
 
 
         public static void TriggerConfirmMap()
@@ -135,9 +143,9 @@ namespace Multibonk.Game
             MapTileRevealedEvent?.Invoke(tileX, tileY);
         }
 
-        public static void TriggerUseShrine()
+        public static void TriggerUseShrine(Vector3 position, int shrineType)
         {
-            UseShrineEvent?.Invoke();
+            UseShrineEvent?.Invoke(position, shrineType);
         }
 
         public static void TriggerPlayerTakeHit(float currentHealth, float maxHealth, float damageAmount)
@@ -160,9 +168,9 @@ namespace Multibonk.Game
             PlayerDieEvent?.Invoke();
         }
 
-        public static void TriggerBossSpawnerActivate(Vector3 spawnerPosition)
+        public static void TriggerBossSpawnerActivate(Vector3 spawnerPosition, byte spawnerType)
         {
-            BossSpawnerActivateEvent?.Invoke(spawnerPosition);
+            BossSpawnerActivateEvent?.Invoke(spawnerPosition, spawnerType);
         }
 
         public static void TriggerStageTransition()
@@ -178,6 +186,11 @@ namespace Multibonk.Game
         public static void TriggerStateDigest(Diagnostics.SyncDigest digest)
         {
             StateDigestEvent?.Invoke(digest);
+        }
+
+        public static void TriggerClientPickupConsumed(string hostId)
+        {
+            ClientPickupConsumedEvent?.Invoke(hostId);
         }
     }
 }
