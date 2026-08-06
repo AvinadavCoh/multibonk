@@ -82,6 +82,94 @@ was a real bug (every patch ran twice).
 
 ---
 
+## Co-op scope: what a full mod still needs
+
+*From a systematic pass over the v1.0.69 assembly plus web research on the game and the two
+other known co-op mods (MegabonkTogether, BonkWithFriends), Aug 2026.*
+
+Everything above makes a **basic** two-player session hold together — same map, shared enemies,
+shared XP/gold, synced deaths. But Megabonk was built single-player, and several of its systems
+assume exactly one player. Those are not yet handled. This section is the real forward roadmap;
+the per-item confidence is marked because metadata proves an API *exists*, not *when* it fires.
+
+### Design decisions needed first (these are yours, not mine to guess)
+
+Several items below can't be built until we decide how co-op should *feel*. Each is a genuine
+fork, and the two other mods disagree, so there's no obvious default.
+
+| Decision | Options / what other mods do | Affects |
+|---|---|---|
+| **Shared vs separate XP & upgrades** | We currently share XP (both level at once). MegabonkTogether defaults to *separate* loot/XP (independent builds) with a shared-mode toggle that doubles XP to compensate. The one substantive community thread wanted *separate* so players specialise. | The whole level-up system below. Pick this before touching upgrades. |
+| **Enemy scaling for 2 players** | Base game is tuned for one player; two players trivialise it. MegabonkTogether raises spawn credits + enemy caps; BonkWithFriends exposes HP/spawn-rate config. Currently we do **nothing** — waves will feel too easy. | Spawn counts, enemy HP. A balance decision, needs its own packet/patch once chosen. |
+| **Combat during upgrade pick** | Single-player pauses on level-up. In co-op, if only the picking player pauses, the other keeps taking damage and can die mid-menu. Options: pause everyone while any player picks, or grant i-frames and keep playing (MegabonkTogether's approach). | Upgrade screen sync + pause propagation. |
+| **Silver (meta-currency) split** | Each machine currently writes full run silver to its own save — both players get 100%. Could be intended (co-op incentive) or should be split. | `ProgressionSaveFile.AddSilver`; low urgency, may be a no-op decision. |
+| **Friendly fire** | Community wants it as an optional toggle, not default. | Only if we add player-damage-to-player at all. |
+
+Also, both other mods **disable Steam achievements/leaderboards during netplay** to avoid
+invalid unlocks and possible bans. We should do the same before any public release.
+
+### Prioritized gap roadmap
+
+**1. Enemy AI targets only the host — HIGH, verified.**
+`MyPlayer.Instance` is a static singleton (confirmed: one per machine, no player registry
+exists). Enemy AI runs host-authoritatively and chases that singleton — which on the host is the
+host's player. The client's player is effectively invisible to enemy AI: it draws no aggro and
+takes no directed damage, while the host takes all of it. This is the most fundamental asymmetry
+in the mod and arguably matters more than teleport. Fixing it means feeding client player
+positions into the host's enemy targeting, not just routing a packet — the targeting code has to
+consider a *list* of players. Non-trivial; likely needs its own investigation pass.
+
+**2. Level-up upgrade screen — HIGH, verified (highest frequency).**
+Fires every time the shared XP pool crosses a threshold, i.e. constantly. Today each machine
+opens its own `LevelupScreen` and calls `UpgradePicker.ShuffleUpgrades()` against a *diverged*
+`UnityEngine.Random` state, so the two players see different offers; the pick itself is never
+broadcast; and the non-picking player isn't paused or even notified. Blocked on the "shared vs
+separate" decision above. Minimum regardless of that choice: re-seed `ShuffleUpgrades` with a
+shared `(seed, level, stage)` key so offers match, and add a "player N is choosing" signal.
+
+**3. Stage transition / teleport coordination — HIGH, verified.** *(what you asked about)*
+The flow is understood: boss dies → portal activates → `InteractablePortal.Interact()` runs the
+`DoLoadNextStage()` coroutine → `MapController.LoadNextStage()` does a full **scene reload** →
+`MyPlayer.TeleportPlayerNextStage()` drops the player at the seed-determined spawn. Map seed for
+the new stage is already synced, so layouts match. What's missing is **coordination**: the host
+can hit the portal the instant the boss dies and force-transition a client who is mid-fight or
+mid-upgrade-screen — a scene reload while the level-up UI is open is undefined behaviour. Needs a
+readiness handshake: host announces "transition pending", clients close any open UI and ack,
+host waits (reuse the `RunTimeoutPatches` 15s-timeout pattern), then everyone loads together.
+Also: replace the reflection in `StageTransitionPacketHandler` with the typed
+`Il2Cpp.InteractablePortal` reference already used in `BossSyncPatches`, and handle the
+`LevelupScreen.isLevelingUp` case.
+
+**4. Final boss is structurally broken in co-op — HIGH, likely (confirm in test).**
+The final fight gates boss vulnerability on charging pylons (`FinalFightController.pylons`,
+`BossPylon.chargeProgress`) by player proximity. Each machine only sees its *own* player charging,
+so if the two players split up across pylons, neither machine ever sees all pylons charged and
+`PylonsDone()` never fires — the boss never becomes vulnerable. Separately,
+`FianlBossCinematic.OnStageBossDied` may not fire on clients (the final portal might never appear).
+Both need confirming the moment someone reaches the final boss; if confirmed, pylon charge
+progress must be broadcast and phase/portal spawn made host-authoritative.
+
+**5. In-run merchant/crafting interactables unsynced — MEDIUM, verified.**
+`InteractableShadyGuy.Interact()` (roaming merchant) and `InteractableMicrowave.UseMicrowave()`
+(crafting) aren't patched. Shared gold means the *cost* is already deducted for everyone, but the
+*item* only lands in the buyer's inventory. `InteractableCage` (needs a key item) has the same
+problem. All three extend the same interactable pattern as shrines/chests — the position-key sync
+we already built should extend to them directly.
+
+**6. bossCurses / challenge-shrine drift — MEDIUM, likely (confirm in test).**
+`GameManager.bossCurses` drives difficulty scaling and relies entirely on cursed-shrine `Interact()`
+replay staying consistent; worth adding to `StateDigestPacket` so the desync detector catches
+drift. `InteractableShrineChallenge.EnemyDied()` is a local callback that may not fire on clients
+when enemies die via our `Kill("network")` path — if so the challenge reward is never granted on
+the client. Both are cheap to confirm in the first session.
+
+**7. Meta-progression / silver / achievements — LOW, verified.**
+Per-machine today (both players get full silver, achievements credit only the machine that
+triggered them). Mostly a documentation/decision item (see the table above), plus disabling
+Steam achievements during netplay before release.
+
+---
+
 ## Desync detector
 
 A two-player session used to produce no evidence — things either felt wrong or didn't. The
@@ -130,10 +218,12 @@ defeat it.
 
 ## Verification debt
 
-The codebase is now feature-complete for a two-player session. Nothing has been tested with
-two real players. Every feature after the Nov 2025 session was written against `Assembly-CSharp.dll`
-metadata, which catches *renames* but not wrong assumptions about *when* a method is called or
-what blocking it does.
+The codebase is feature-complete for a **basic** two-player session (same map, shared
+enemies/XP/gold, synced deaths and stage transitions) — but see [Co-op scope](#co-op-scope-what-a-full-mod-still-needs)
+for the systems a *full* co-op experience still needs (enemy AI targeting, upgrade screen,
+final boss, merchants). Nothing has been tested with two real players. Every feature after the
+Nov 2025 session was written against `Assembly-CSharp.dll` metadata, which catches *renames* but
+not wrong assumptions about *when* a method is called or what blocking it does.
 
 **The next step is a single two-player session. Read the `[SyncCheck]` log afterwards — that
 log, not this list, is the real backlog.**
@@ -180,11 +270,28 @@ log, not this list, is the real backlog.**
 
 ## Suggested order of work
 
+**Phase 0 — validate what exists (do this first).**
 1. **Run one two-player session and read the `[SyncCheck]` output.** Pay particular attention
-   to the four high-risk areas above. That log is the real backlog — everything below is a
-   guess until it exists.
-2. If position-key identity fails for shrines or chests, switch from `Math.Round` to a
-   bucketed grid (e.g., floor to nearest 0.5) and re-test.
-3. If boss phases diverge, instrument `FinalFightController` to determine the trigger source,
-   then add a phase-sync packet only if it is event-driven.
-4. Add a remote death visual once an entry point can be identified safely from running logs.
+   to the four high-risk areas in Verification debt above. That log is the real backlog for the
+   existing features — don't build on top of unvalidated sync.
+2. If position-key identity fails for shrines/chests, switch from `Math.Round` to a bucketed
+   grid (floor to nearest 0.5) and re-test.
+3. While in that session, confirm the cheap unknowns from the roadmap: does the final boss
+   become vulnerable? do boss phases track? does a challenge shrine grant its reward on the
+   client? These need eyes-on, not code.
+
+**Phase 1 — decisions (see [Co-op scope](#co-op-scope-what-a-full-mod-still-needs)).**
+4. Decide shared-vs-separate XP/upgrades, the enemy-scaling model, and the upgrade-pause policy.
+   These three gate the biggest remaining feature (the level-up screen) and each other.
+
+**Phase 2 — build the structural gaps, hardest first.**
+5. Enemy AI targeting so enemies see the client player (roadmap #1).
+6. Level-up upgrade screen per the Phase-1 decision (roadmap #2).
+7. Stage-transition readiness handshake — the teleport coordination (roadmap #3).
+8. Final boss pylon/phase sync if Phase 0 confirmed it's broken (roadmap #4).
+
+**Phase 3 — fill-ins.**
+9. Merchant/microwave/cage interactables (roadmap #5) — reuses the existing position-key sync.
+10. `bossCurses` into the desync digest; challenge-shrine reward broadcast if Phase 0 showed it
+    missing (roadmap #6).
+11. Remote death visual; enemy scaling tuning; achievement/leaderboard suppression for release.
