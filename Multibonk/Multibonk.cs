@@ -78,6 +78,8 @@ namespace Multibonk
             services.AddSingleton<IGameEventHandler, PauseSyncEventHandler>();
             services.AddSingleton<IGameEventHandler, StateDigestEventHandler>(); // desync detector
             services.AddSingleton<IGameEventHandler, PlayerDiedReportEventHandler>();
+            services.AddSingleton<IGameEventHandler, LevelUpEventHandler>();  // co-op level-up coordination
+            services.AddSingleton<IGameEventHandler, LevelUpTimeoutTicker>(); // guaranteed every-frame tick even while paused
             services.AddSingleton<IGameEventHandler, EnemyCachePreloader>(); // Pre-load all enemy types at game start
             services.AddSingleton<IGameEventHandler, GameDispatcher>();
             services.AddSingleton<IGameEventHandler, GameplayRuleSynchronizer>();
@@ -95,6 +97,7 @@ namespace Multibonk
             services.AddSingleton<IServerPacketHandler, PlayerDiedServerPacketHandler>();
             services.AddSingleton<IServerPacketHandler, MapRevealServerPacketHandler>();
             services.AddSingleton<IServerPacketHandler, PickupConsumedServerPacketHandler>();
+            services.AddSingleton<IServerPacketHandler, LevelupDoneServerPacketHandler>();
 
             services.AddSingleton<IClientPacketHandler, LobbyPlayerListPacketHandler>();
             services.AddSingleton<IClientPacketHandler, PlayerSelectedCharacterPacketHandler>();
@@ -125,6 +128,7 @@ namespace Multibonk
             services.AddSingleton<IClientPacketHandler, StateDigestPacketHandler>(); // desync detector
             services.AddSingleton<IClientPacketHandler, PauseGamePacketHandler>();
             services.AddSingleton<IClientPacketHandler, UnpauseGamePacketHandler>();
+            services.AddSingleton<IClientPacketHandler, LevelupResumePacketHandler>();
 
             services.AddSingleton<ClientProtocol>();
             services.AddSingleton<ServerProtocol>();

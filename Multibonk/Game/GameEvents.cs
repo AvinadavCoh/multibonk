@@ -5,6 +5,13 @@ namespace Multibonk.Game
 {
     internal static class GameEvents
     {
+        /// <summary>
+        /// Fired on a CLIENT when it closes its own level-up screen (picks/skips an upgrade).
+        /// LevelUpEventHandler subscribes and sends LEVELUP_DONE_PACKET to the host.
+        /// Not fired on the host (host coordinates directly in LevelUpCoordinator).
+        /// </summary>
+        public static event Action LevelupScreenClosedEvent;
+        public static void TriggerLevelupScreenClosed() => LevelupScreenClosedEvent?.Invoke();
         public static event Action ConfirmCharacterEvent;
         public static event Action ConfirmMapEvent;
         public static event Action<CharacterData> CharacterChanged;

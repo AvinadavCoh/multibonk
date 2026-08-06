@@ -100,7 +100,11 @@ namespace Multibonk.Game.Patches
         {
             static void Postfix()
             {
-                if (LobbyPatchFlags.InMultiplayer && LobbyPatchFlags.IsHosting)
+                // During level-up coordination the coordinator owns pause signalling.
+                // Suppress the generic broadcast so an intermediate re-pause inside
+                // CloseLevelupScreenPatch does not send a spurious PAUSE_GAME to clients.
+                if (LobbyPatchFlags.InMultiplayer && LobbyPatchFlags.IsHosting
+                    && !LevelUpCoordinator.IsActive)
                     GameEvents.TriggerInGamePause();
             }
         }
@@ -110,7 +114,15 @@ namespace Multibonk.Game.Patches
         {
             static void Postfix()
             {
-                if (LobbyPatchFlags.InMultiplayer && LobbyPatchFlags.IsHosting)
+                // During level-up coordination the coordinator owns pause signalling.
+                // Suppress the generic broadcast so CloseLevelupScreen's internal
+                // MyTime.Unpause does not prematurely unpause clients via UNPAUSE_GAME
+                // before all players have finished picking.
+                // When the coordinator calls MyTime.Unpause() in DoResume(), IsActive is
+                // already false, so the final UNPAUSE_GAME broadcast IS sent (intentional
+                // belt-and-suspenders alongside the LEVELUP_RESUME packet).
+                if (LobbyPatchFlags.InMultiplayer && LobbyPatchFlags.IsHosting
+                    && !LevelUpCoordinator.IsActive)
                     GameEvents.TriggerInGameUnpause();
             }
         }

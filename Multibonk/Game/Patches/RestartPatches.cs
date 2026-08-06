@@ -27,6 +27,8 @@ namespace Multibonk.Game.Patches
         {
             SyncDigestPatches.Reset();
             Networking.Comms.Client.Handlers.StateDigestPacketHandler.Reset();
+            // RunCoordinator.Reset() fires RunReset, which cascades to every subscriber
+            // including LevelUpCoordinator.Reset() (wired in LevelUpEventHandler).
             RunCoordinator.Reset();
 
             if (!LobbyPatchFlags.IsHosting)

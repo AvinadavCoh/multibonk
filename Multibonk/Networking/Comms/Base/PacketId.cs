@@ -34,6 +34,7 @@ namespace Multibonk.Networking.Comms.Base
        STATE_DIGEST = 28,
        RUN_OVER = 29,
        BOSS_HEALTH = 30,
+       LEVELUP_RESUME = 31,            // Host → all clients: all players done, resume the game
     }
 
     public enum ClientSentPacketId : byte
@@ -48,6 +49,7 @@ namespace Multibonk.Networking.Comms.Base
         PLAYER_HEALTH_PACKET = 7,
         MAP_REVEAL_PACKET = 8,
         PICKUP_CONSUMED_PACKET = 9,
-        PLAYER_DIED_PACKET = 10
+        PLAYER_DIED_PACKET = 10,
+        LEVELUP_DONE_PACKET = 11,      // Client → host: local player finished picking upgrade
     }
 }

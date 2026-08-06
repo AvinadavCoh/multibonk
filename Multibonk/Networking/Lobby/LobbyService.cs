@@ -55,6 +55,11 @@ namespace Multibonk.Networking.Lobby
                 // handler leaves only A (dead), so AreAllPlayersDead() now returns true
                 // and TryEndRun broadcasts RUN_OVER and ends the run.
                 RunCoordinator.TryEndRun(CurrentLobby);
+
+                // If a level-up is in progress and the disconnected player was still in
+                // the pending set, prune them now so everyone else is not forced to wait
+                // the full 20-second timeout before the game resumes.
+                LevelUpCoordinator.TryResumeAll();
             }
             catch (Exception ex)
             {
