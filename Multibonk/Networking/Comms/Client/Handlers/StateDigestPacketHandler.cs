@@ -1,4 +1,5 @@
 using Il2CppAssets.Scripts.Actors.Player;
+using Il2CppAssets.Scripts.Managers;
 using Il2CppAssets.Scripts.Utility;
 using MelonLoader;
 using Multibonk.Game.Diagnostics;
@@ -31,6 +32,12 @@ namespace Multibonk.Networking.Comms.Client.Handlers
         /// <summary>Live-object count difference tolerated before reporting (covers in-flight packets).</summary>
         private const int ENEMY_COUNT_TOLERANCE = 2;
         private const int PICKUP_COUNT_TOLERANCE = 3;
+
+        /// <summary>
+        /// Engine enemy count tolerance. Looser than the ledger tolerance because
+        /// in-flight spawn/death packets can transiently inflate the engine count.
+        /// </summary>
+        private const int ENGINE_ENEMY_TOLERANCE = 5;
 
         /// <summary>How far a channel may lag the host before it is called out.</summary>
         private const int CHANNEL_LAG_TOLERANCE = 3;
@@ -118,6 +125,17 @@ namespace Multibonk.Networking.Comms.Client.Handlers
             int localPickups = ItemDropPatches.ClientLivePickupCount;
             if (System.Math.Abs(localPickups - host.LivePickups) > PICKUP_COUNT_TOLERANCE)
                 issues.Add($"pickups: host {host.LivePickups} / local {localPickups}");
+
+            // --- engine enemy count (catches locally-spawned enemies that bypass the ledger) ---
+            // Both sides must be >= 0 (a -1 means EnemyManager.Instance was null — not in a run yet).
+            var localEnemyMgr = EnemyManager.Instance;
+            int localEngineEnemies = localEnemyMgr != null ? localEnemyMgr.GetNumEnemies() : -1;
+            if (host.EngineEnemyCount >= 0 && localEngineEnemies >= 0)
+            {
+                int engineDiff = localEngineEnemies - host.EngineEnemyCount;
+                if (System.Math.Abs(engineDiff) > ENGINE_ENEMY_TOLERANCE)
+                    issues.Add($"enemies (engine): host {host.EngineEnemyCount} / local {localEngineEnemies} (diff {engineDiff}) - client may be spawning locally");
+            }
 
             // --- per-channel ledgers ---
             int channels = System.Math.Min(host.SentCounters.Length, SyncTelemetry.ChannelCount);

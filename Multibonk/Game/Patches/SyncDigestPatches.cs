@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Il2CppAssets.Scripts.Actors.Player;
+using Il2CppAssets.Scripts.Managers;
 using Il2CppAssets.Scripts.Utility;
 using MelonLoader;
 using Multibonk.Game.Diagnostics;
@@ -57,6 +58,9 @@ namespace Multibonk.Game.Patches
                         level = inventory.GetCharacterLevel();
                     }
 
+                    var enemyMgr = EnemyManager.Instance;
+                    int engineEnemyCount = enemyMgr != null ? enemyMgr.GetNumEnemies() : -1;
+
                     var digest = new SyncDigest
                     {
                         Sequence = sequence++,
@@ -67,6 +71,7 @@ namespace Multibonk.Game.Patches
                         LiveEnemies = SyncTelemetry.LedgerLiveEnemies(hosting: true),
                         LivePickups = ItemDropPatches.HostLivePickupCount,
                         SentCounters = SyncTelemetry.SnapshotSent(),
+                        EngineEnemyCount = engineEnemyCount,
                     };
 
                     GameEvents.TriggerStateDigest(digest);

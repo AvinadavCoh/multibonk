@@ -23,7 +23,8 @@ namespace Multibonk.Game.Handlers.NetworkNotify
                     digest.Level,
                     digest.LiveEnemies,
                     digest.LivePickups,
-                    digest.SentCounters);
+                    digest.SentCounters,
+                    digest.EngineEnemyCount);
 
                 foreach (var player in lobbyContext.GetPlayers())
                 {

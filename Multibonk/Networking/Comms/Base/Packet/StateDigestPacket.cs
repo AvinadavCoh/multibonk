@@ -12,7 +12,8 @@ namespace Multibonk.Networking.Comms.Base.Packet
         public readonly byte Id = (byte)ServerSentPacketId.STATE_DIGEST;
 
         public SendStateDigestPacket(ushort sequence, float stageTime, float runTime,
-            int gold, int level, int liveEnemies, int livePickups, int[] sentCounters)
+            int gold, int level, int liveEnemies, int livePickups, int[] sentCounters,
+            int engineEnemyCount)
         {
             Message.WriteByte(Id);
             Message.WriteUShort(sequence);
@@ -26,6 +27,9 @@ namespace Multibonk.Networking.Comms.Base.Packet
             Message.WriteByte((byte)sentCounters.Length);
             for (int i = 0; i < sentCounters.Length; i++)
                 Message.WriteInt(sentCounters[i]);
+
+            // Appended after counter array — MUST be read in the same order in StateDigestPacket.
+            Message.WriteInt(engineEnemyCount);
         }
     }
 
@@ -39,6 +43,8 @@ namespace Multibonk.Networking.Comms.Base.Packet
         public int LiveEnemies { get; private set; }
         public int LivePickups { get; private set; }
         public int[] SentCounters { get; private set; }
+        /// <summary>-1 if the host's EnemyManager was unavailable when the digest was built.</summary>
+        public int EngineEnemyCount { get; private set; }
 
         public StateDigestPacket(IncomingMessage msg)
         {
@@ -54,6 +60,9 @@ namespace Multibonk.Networking.Comms.Base.Packet
             SentCounters = new int[count];
             for (int i = 0; i < count; i++)
                 SentCounters[i] = msg.ReadInt();
+
+            // Appended after counter array — matches write order in SendStateDigestPacket.
+            EngineEnemyCount = msg.ReadInt();
         }
     }
 }

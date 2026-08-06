@@ -35,6 +35,11 @@ namespace Multibonk.Game.Diagnostics
         public int LiveEnemies;
         public int LivePickups;
         public int[] SentCounters;
+        /// <summary>
+        /// Real enemy count from the game engine (EnemyManager.GetNumEnemies).
+        /// -1 means the manager was unavailable when the digest was built.
+        /// </summary>
+        public int EngineEnemyCount;
     }
 
     /// <summary>
