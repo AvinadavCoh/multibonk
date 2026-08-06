@@ -97,13 +97,13 @@ the per-item confidence is marked because metadata proves an API *exists*, not *
 Several items below can't be built until we decide how co-op should *feel*. Each is a genuine
 fork, and the two other mods disagree, so there's no obvious default.
 
-| Decision | Options / what other mods do | Affects |
+| Decision | Status | Affects |
 |---|---|---|
-| **Shared vs separate XP & upgrades** | We currently share XP (both level at once). MegabonkTogether defaults to *separate* loot/XP (independent builds) with a shared-mode toggle that doubles XP to compensate. The one substantive community thread wanted *separate* so players specialise. | The whole level-up system below. Pick this before touching upgrades. |
-| **Enemy scaling for 2 players** | Base game is tuned for one player; two players trivialise it. MegabonkTogether raises spawn credits + enemy caps; BonkWithFriends exposes HP/spawn-rate config. Currently we do **nothing** — waves will feel too easy. | Spawn counts, enemy HP. A balance decision, needs its own packet/patch once chosen. |
-| **Combat during upgrade pick** | Single-player pauses on level-up. In co-op, if only the picking player pauses, the other keeps taking damage and can die mid-menu. Options: pause everyone while any player picks, or grant i-frames and keep playing (MegabonkTogether's approach). | Upgrade screen sync + pause propagation. |
-| **Silver (meta-currency) split** | Each machine currently writes full run silver to its own save — both players get 100%. Could be intended (co-op incentive) or should be split. | `ProgressionSaveFile.AddSilver`; low urgency, may be a no-op decision. |
-| **Friendly fire** | Community wants it as an optional toggle, not default. | Only if we add player-damage-to-player at all. |
+| **Shared vs separate XP & upgrades** | ✅ **DECIDED: shared.** There is genuinely one authoritative spawner (both `SpawnEnemy` overloads block on the client), so shared XP is correct — already implemented. This is a **hard invariant**: both players are always at the exact same XP and level. Any XP-affecting upgrade (e.g. an XP tome) must feed the *shared pool*, not one player's, so levels never desync. Keep that in mind when building the upgrade sync. | Level-up system; XP-granting upgrades must preserve pool equality. |
+| **Combat during upgrade pick** | ✅ **DECIDED: pause everyone.** Any player's level-up pauses the game for **both** and opens the upgrade menu for both; each picks their own upgrade independently. Because XP is a shared invariant (above), an XP-granting pick by one player must credit both equally. | Upgrade screen sync + pause propagation for all players on any level-up. |
+| **Enemy scaling for 2 players** | ⏸ **DEFERRED to after the test session.** Base game is tuned for one player; two may trivialise it, but we'll pick a model (more enemies / tougher enemies / both — MegabonkTogether does both) once we've *felt* the real difficulty. No code until then. | Spawn counts / enemy HP; its own patch once chosen. |
+| **Silver (meta-currency) split** | Open (low urgency). Each machine currently writes full run silver to its own save — both players get 100%. Could be intended (co-op incentive) or should be split. | `ProgressionSaveFile.AddSilver`; may be a no-op decision. |
+| **Friendly fire** | Open (low urgency). Community wants it as an optional toggle, not default. | Only if we add player-damage-to-player at all. |
 
 Also, both other mods **disable Steam achievements/leaderboards during netplay** to avoid
 invalid unlocks and possible bans. We should do the same before any public release.
@@ -120,12 +120,21 @@ positions into the host's enemy targeting, not just routing a packet — the tar
 consider a *list* of players. Non-trivial; likely needs its own investigation pass.
 
 **2. Level-up upgrade screen — HIGH, verified (highest frequency).**
-Fires every time the shared XP pool crosses a threshold, i.e. constantly. Today each machine
-opens its own `LevelupScreen` and calls `UpgradePicker.ShuffleUpgrades()` against a *diverged*
-`UnityEngine.Random` state, so the two players see different offers; the pick itself is never
-broadcast; and the non-picking player isn't paused or even notified. Blocked on the "shared vs
-separate" decision above. Minimum regardless of that choice: re-seed `ShuffleUpgrades` with a
-shared `(seed, level, stage)` key so offers match, and add a "player N is choosing" signal.
+Fires every time the shared XP pool crosses a threshold, i.e. constantly, and both players cross
+it together. **Decided model (see decisions table):** any level-up pauses the game for *both*
+players and opens the upgrade menu for both; each picks their own upgrade independently. To build:
+- Broadcast a "level-up: pause + open upgrade screen" packet so both machines pause and show the
+  menu at the same moment (reuse the existing pause sync). The non-picking side must not keep
+  taking damage — that was the whole point of pausing everyone.
+- Each player's `UpgradePicker.ShuffleUpgrades()` runs locally for their own offers. Picks are
+  independent (separate builds), so the *choice* need not be broadcast — but resume must wait for
+  *both* players to have chosen, or one unpauses into a still-paused peer.
+- **XP invariant:** if a chosen upgrade grants/multiplies XP (e.g. an XP tome), it must add to the
+  *shared* pool so both players stay at the same level. Route any upgrade-driven XP gain through
+  the existing bidirectional XP sync, not the local inventory only.
+- Offers themselves diverging between players is acceptable under independent picks, but re-seeding
+  `ShuffleUpgrades` with a shared `(seed, level)` key is cheap and avoids confusion if we ever want
+  matched offers.
 
 **3. Stage transition / teleport coordination — HIGH, verified.** *(what you asked about)*
 The flow is understood: boss dies → portal activates → `InteractablePortal.Interact()` runs the
@@ -206,6 +215,12 @@ points to a handler that is silently failing.
   the host packet.
 - `ledger says N applied but only M are mapped` — spawns counted as applied without producing
   a usable enemy.
+- `enemies (engine): host N / local M ... client may be spawning locally` — the client's **real**
+  engine enemy count (`EnemyManager.GetNumEnemies()`) exceeds the host's beyond tolerance. This is
+  the check for the suspected double-spawn: if the client is spawning mobs locally instead of only
+  replaying host packets, `M` runs ~2× `N`. Unlike the ledger line, this reads the actual game
+  count, so it catches leaked local spawns that bypass the mod's own counters (e.g. a spawn path
+  that isn't blocked — `SpawnBoss` is disabled and *assumed* to route through `SpawnEnemy`, unverified).
 - `digest sequence jumped` — the transport itself is losing packets; treat other findings in
   that window with suspicion.
 - `XpGain` / `GoldGain` are bidirectional, so a mismatch there is expected and is reported as
@@ -245,6 +260,14 @@ log, not this list, is the real backlog.**
    arriving and that `EnemyIdMapper.RegisterMapping` is being called with a non-null `Enemy`
    cast. The `[SyncCheck] EnemyDeath: applied 0` line plus `No mapped enemy` warnings together
    confirm a mapping gap.
+
+4. **Double-spawn on the client (suspected).** By design both `SpawnEnemy` overloads block on
+   the client so only host packets produce mobs — but any unblocked spawn path (notably
+   `SpawnBoss`, whose patch is disabled and *assumed* to route through `SpawnEnemy`) would spawn
+   locally *and* replay the host packet = 2×. Watch the log for
+   `enemies (engine): host N / local M ... client may be spawning locally`. If `M` tracks ~2× `N`,
+   the client is double-spawning; the `(engine)` line catches this where the ledger line can't,
+   because leaked local spawns bypass the mod's own counters.
 
 4. **Boss phases** — reach the final boss. Monitor whether `FinalFightController.currentPhase`
    advances on the client at the same thresholds. If phases are already correct (hp-polling
