@@ -12,6 +12,10 @@ namespace Multibonk.Game.Handlers.NetworkNotify
         {
             GameEvents.ConfirmMapEvent += () =>
             {
+                // Reset per-run death state so a retry starts fresh for all players.
+                lobbyContext.ResetDeathFlags();
+                RunCoordinator.Reset();
+
                 MelonLogger.Msg($"Starting game with seed {GamePatchFlags.Seed}");
                 var packet = new SendStartGamePacket(GamePatchFlags.Seed);
 

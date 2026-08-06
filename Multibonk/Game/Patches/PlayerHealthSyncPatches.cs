@@ -6,15 +6,23 @@ using Multibonk.Networking.Lobby;
 namespace Multibonk.Game.Patches
 {
     /// <summary>
-    /// Patches for synchronizing player damage and death events
-    /// Host takes damage/dies → triggers GameEvent → broadcasts to clients
+    /// Patches for synchronizing player damage and death events.
+    ///
+    /// PlayerTakeDamagePatch   — both sides: fires GameEvents.TriggerPlayerTakeHit so the
+    ///                           damage is routed to other players via the network layer.
+    ///
+    /// PlayerDeathPatch        — both sides (in multiplayer): fires GameEvents.TriggerPlayerDie
+    ///                           so each side can report its death upstream.
+    ///
+    /// GameOverPatch           — all machines: suppresses GameManager.OnDied() in multiplayer
+    ///                           until RunCoordinator.AllowGameOver is set (meaning every
+    ///                           lobby player has been confirmed dead).
     /// </summary>
     public static class PlayerHealthSyncPatches
     {
-        /// <summary>
-        /// Patches player damage/hit detection
-        /// When host player takes damage, broadcast to all clients
-        /// </summary>
+        // ─────────────────────────────────────────────────────────────────────
+        // PlayerTakeDamagePatch
+        // ─────────────────────────────────────────────────────────────────────
         [HarmonyPatch]
         class PlayerTakeDamagePatch
         {
@@ -22,26 +30,20 @@ namespace Multibonk.Game.Patches
             {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
-                if (assembly == null)
-                {
-                    return false;
-                }
 
-                // Correct class name from dnSpy: Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth
+                if (assembly == null)
+                    return false;
+
                 var playerHealthType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth");
                 if (playerHealthType == null)
-                {
                     return false;
-                }
 
-                // Method name from dnSpy: DamagePlayer (takes Enemy, Vector3, DcFlags)
-                var damageMethod = playerHealthType.GetMethod("DamagePlayer", 
+                var damageMethod = playerHealthType.GetMethod("DamagePlayer",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
 
                 if (damageMethod != null)
                 {
-                    MelonLogger.Msg($"Found PlayerHealth.DamagePlayer for patching");
+                    MelonLogger.Msg("Found PlayerHealth.DamagePlayer for patching");
                     return true;
                 }
 
@@ -52,7 +54,7 @@ namespace Multibonk.Game.Patches
             {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
+
                 if (assembly == null)
                     return null;
 
@@ -60,11 +62,10 @@ namespace Multibonk.Game.Patches
                 if (playerHealthType == null)
                     return null;
 
-                return playerHealthType.GetMethod("DamagePlayer", 
+                return playerHealthType.GetMethod("DamagePlayer",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
-            // Capture HP before the damage applies so we can compute the real delta
             static void Prefix(object __instance, ref float __state)
             {
                 __state = ReadFloat(__instance, "hp");
@@ -72,7 +73,6 @@ namespace Multibonk.Game.Patches
 
             static void Postfix(object __instance, float __state)
             {
-                // Both host and client report their own damage (the receiver routes it)
                 if (!LobbyPatchFlags.InMultiplayer)
                     return;
 
@@ -83,7 +83,7 @@ namespace Multibonk.Game.Patches
                     float damage = __state - current;
 
                     if (damage <= 0f)
-                        return; // blocked/healed - nothing to report
+                        return;
 
                     DebugLogger.Log($"[Health] Local player took {damage:F1} damage ({current:F1}/{max:F1})");
                     GameEvents.TriggerPlayerTakeHit(current, max, damage);
@@ -111,10 +111,14 @@ namespace Multibonk.Game.Patches
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // PlayerDeathPatch
+        // ─────────────────────────────────────────────────────────────────────
         /// <summary>
-        /// Patches player death
-        /// When host player dies, broadcast to all clients
-        /// In multiplayer: player stays in lobby, game continues until all dead
+        /// Fires on both host and client whenever the local player's HP hits zero.
+        /// Triggers GameEvents.PlayerDieEvent so:
+        ///   • the host's PlayerDeathEventHandler can mark itself dead and check all-dead,
+        ///   • the client's PlayerDiedReportEventHandler can send PLAYER_DIED_PACKET upstream.
         /// </summary>
         [HarmonyPatch]
         class PlayerDeathPatch
@@ -123,26 +127,20 @@ namespace Multibonk.Game.Patches
             {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
-                if (assembly == null)
-                {
-                    return false;
-                }
 
-                // Correct class name from dnSpy: Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth
+                if (assembly == null)
+                    return false;
+
                 var playerHealthType = assembly.GetType("Il2CppAssets.Scripts.Inventory__Items__Pickups.PlayerHealth");
                 if (playerHealthType == null)
-                {
                     return false;
-                }
 
-                // Method name from dnSpy: PlayerDied (void, no parameters)
-                var diedMethod = playerHealthType.GetMethod("PlayerDied", 
+                var diedMethod = playerHealthType.GetMethod("PlayerDied",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
 
                 if (diedMethod != null)
                 {
-                    MelonLogger.Msg($"Found PlayerHealth.PlayerDied for patching");
+                    MelonLogger.Msg("Found PlayerHealth.PlayerDied for patching");
                     return true;
                 }
 
@@ -153,7 +151,7 @@ namespace Multibonk.Game.Patches
             {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
+
                 if (assembly == null)
                     return null;
 
@@ -161,18 +159,21 @@ namespace Multibonk.Game.Patches
                 if (playerHealthType == null)
                     return null;
 
-                return playerHealthType.GetMethod("PlayerDied", 
+                return playerHealthType.GetMethod("PlayerDied",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
             static void Postfix(object __instance)
             {
-                if (!LobbyPatchFlags.IsHosting)
+                // Fire for every player in multiplayer (not just the host).
+                // Host → PlayerDeathEventHandler handles the all-dead check.
+                // Client → PlayerDiedReportEventHandler sends PLAYER_DIED_PACKET.
+                if (!LobbyPatchFlags.InMultiplayer)
                     return;
 
                 try
                 {
-                    MelonLogger.Msg($"[Host] Player died");
+                    MelonLogger.Msg("[Player] Local player died - triggering death event");
                     GameEvents.TriggerPlayerDie();
                 }
                 catch (System.Exception ex)
@@ -182,67 +183,97 @@ namespace Multibonk.Game.Patches
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // GameOverPatch
+        // ─────────────────────────────────────────────────────────────────────
         /// <summary>
-        /// Optional: Patch game over logic to only trigger when ALL players are dead
-        /// This prevents early game over in multiplayer
+        /// Suppresses GameManager.OnDied() (the game-over trigger) in multiplayer
+        /// until RunCoordinator.AllowGameOver is set.
+        ///
+        /// The gate is opened by:
+        ///   • PlayerDeathEventHandler / PlayerDiedServerPacketHandler on the host
+        ///     (when all lobby players are confirmed dead), or
+        ///   • RunOverPacketHandler on clients (on receipt of RUN_OVER from the host).
+        ///
+        /// After opening, GameManager.OnDied() is called explicitly so the game-over
+        /// screen appears exactly once.
+        ///
+        /// Target: Il2Cpp.GameManager.OnDied()  (confirmed in API dump)
         /// </summary>
         [HarmonyPatch]
         class GameOverPatch
         {
             static bool Prepare()
             {
-                // Only enable this if we want to modify game over logic
-                return false; // Disabled for now - can enable later if needed
+                var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+
+                if (assembly == null)
+                    return false;
+
+                // Confirmed class name from API dump: Il2Cpp.GameManager
+                var gameManagerType = assembly.GetType("Il2Cpp.GameManager");
+                if (gameManagerType == null)
+                {
+                    // DEFECT 6: loud error — a silent Warning meant this failure was invisible
+                    // in normal log scans, allowing the mod to ship in a state where every
+                    // player death immediately ends the run (single-player behaviour restored).
+                    MelonLogger.Error(
+                        "[GameOverPatch] Il2Cpp.GameManager not found — multiplayer run-end gating is DISABLED. " +
+                        "The game will revert to ending on the first death. Check the assembly name in the API dump.");
+                    return false;
+                }
+
+                // Confirmed method name from API dump: OnDied (void, no params)
+                var onDiedMethod = gameManagerType.GetMethod("OnDied",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                if (onDiedMethod == null)
+                {
+                    MelonLogger.Error(
+                        "[GameOverPatch] GameManager.OnDied not found — multiplayer run-end gating is DISABLED. " +
+                        "The game will revert to ending on the first death. Check the method signature in the API dump.");
+                    return false;
+                }
+
+                MelonLogger.Msg("[GameOverPatch] Found Il2Cpp.GameManager.OnDied - game-over gate enabled");
+                return true;
             }
 
             static System.Reflection.MethodBase TargetMethod()
             {
                 var assembly = System.AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-                    
+
                 if (assembly == null)
                     return null;
 
-                // Try to find game over/game manager class
-                string[] possibleClasses = new[] 
-                { 
-                    "Il2Cpp.GameManager",
-                    "Il2CppAssets.Scripts.GameManager",
-                    "GameManager"
-                };
+                var gameManagerType = assembly.GetType("Il2Cpp.GameManager");
+                if (gameManagerType == null)
+                    return null;
 
-                foreach (var className in possibleClasses)
-                {
-                    var managerType = assembly.GetType(className);
-                    if (managerType != null)
-                    {
-                        var gameOverMethod = managerType.GetMethod("GameOver", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        
-                        if (gameOverMethod != null)
-                        {
-                            MelonLogger.Msg($"Found {className}.GameOver for game over patching");
-                            return gameOverMethod;
-                        }
-                    }
-                }
-
-                return null;
+                return gameManagerType.GetMethod("OnDied",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             }
 
+            /// <summary>
+            /// Returns false (block) when we are in multiplayer and the host has not yet
+            /// confirmed that all players are dead.
+            /// Returns true (allow) in single player, or once the gate is open.
+            /// </summary>
             static bool Prefix()
             {
-                // In multiplayer, prevent game over until all players are dead
-                if (LobbyPatchFlags.InMultiplayer)
+                if (!LobbyPatchFlags.InMultiplayer)
+                    return true; // single player - always allow
+
+                if (RunCoordinator.AllowGameOver)
                 {
-                    MelonLogger.Msg("[GameOver] Blocked - multiplayer mode, checking if all players dead");
-                    // TODO: Check if all players in lobby are dead
-                    // Return false to cancel game over if any players alive
-                    // Return true to allow game over if all dead
-                    return true; // For now, allow game over normally
+                    MelonLogger.Msg("[GameOverPatch] Gate open - allowing GameManager.OnDied");
+                    return true;
                 }
-                
-                return true; // Allow game over in single player
+
+                MelonLogger.Msg("[GameOverPatch] Blocking GameManager.OnDied - waiting for all players to die");
+                return false;
             }
         }
     }

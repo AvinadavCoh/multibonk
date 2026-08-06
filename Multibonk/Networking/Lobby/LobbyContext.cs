@@ -1,4 +1,5 @@
 using Il2Cpp;
+using Multibonk.Game;
 using Multibonk.Networking.Comms.Base;
 using UnityEngine;
 
@@ -24,6 +25,15 @@ namespace Multibonk.Networking.Lobby
         // Synced health for the Players HUD (updated by damage packets)
         public float CurrentHealth { get; set; } = 100f;
         public float MaxHealth { get; set; } = 100f;
+
+        // Synced level for the Players HUD (updated by level-up packets)
+        public int Level { get; set; } = 1;
+
+        /// <summary>
+        /// Set to true when this player's death is confirmed for the current run.
+        /// Reset to false at the start of every new run via LobbyContext.ResetDeathFlags().
+        /// </summary>
+        public bool IsDead { get; set; } = false;
 
         public LobbyPlayer(
             string name = "Unknown",
@@ -52,6 +62,12 @@ namespace Multibonk.Networking.Lobby
     {
         public static bool IsHosting;
         public static bool InMultiplayer; // True when hosting or connected to a lobby
+
+        /// <summary>
+        /// Shared reference so packet handlers that cannot inject LobbyContext via DI
+        /// can still reach the current lobby. Set by LobbyService on create / join.
+        /// </summary>
+        public static LobbyContext CurrentLobby { get; internal set; }
     }
 
     public class LobbyContext
@@ -59,6 +75,12 @@ namespace Multibonk.Networking.Lobby
         private List<LobbyPlayer> players = new List<LobbyPlayer>();
         private readonly object _lock = new object();
         private LobbyPlayer myself;
+
+        public LobbyContext()
+        {
+            // Reset per-run state whenever the run coordinator signals a restart.
+            RunCoordinator.RunReset += ResetDeathFlags;
+        }
 
         public LobbyState State { get; private set; }
 
@@ -115,17 +137,41 @@ namespace Multibonk.Networking.Lobby
             }
         }
 
-        public LobbyPlayer RemovePlayer(Guid uuid)
+        /// <summary>
+        /// Remove a player by UUID.
+        /// Took a Guid until now, compared against a ushort UUID via Guid.Equals(object),
+        /// which is false for every input - so this silently removed nobody.
+        /// </summary>
+        public LobbyPlayer RemovePlayer(ushort uuid)
         {
-            var player = players.Find(p => uuid.Equals(p.UUID));
-            if (player != null)
+            LobbyPlayer player = null;
+            lock (_lock)
             {
-                lock (_lock)
-                {
+                player = players.Find(p => p.UUID == uuid);
+                if (player != null)
                     players.Remove(player);
-                }
-                OnPlayerLeft?.Invoke(player, this);
             }
+            if (player != null)
+                OnPlayerLeft?.Invoke(player, this);
+            return player;
+        }
+
+        /// <summary>
+        /// Removes the player whose Connection matches <paramref name="conn"/>.
+        /// Fires OnPlayerLeft and returns the removed player, or null if not found.
+        /// Used by the disconnect handler to clean up a dropped client.
+        /// </summary>
+        public LobbyPlayer RemovePlayer(Connection conn)
+        {
+            LobbyPlayer player = null;
+            lock (_lock)
+            {
+                player = players.Find(p => conn == p.Connection);
+                if (player != null)
+                    players.Remove(player);
+            }
+            if (player != null)
+                OnPlayerLeft?.Invoke(player, this);
             return player;
         }
 
@@ -160,5 +206,35 @@ namespace Multibonk.Networking.Lobby
         public void TriggerLobbyJoin() => OnLobbyJoin?.Invoke(this);
         public void TriggerLobbyJoinFailed(string reason) => OnLobbyJoinFailed?.Invoke(reason);
         public void TriggerLobbyClosed() => OnLobbyClosed?.Invoke(this);
+
+        /// <summary>
+        /// Resets IsDead on every lobby seat. Called at the start of each new run
+        /// and via RunCoordinator.RunReset (which fires on restart / retry).
+        /// </summary>
+        public void ResetDeathFlags()
+        {
+            lock (_lock)
+            {
+                foreach (var p in players)
+                    p.IsDead = false;
+            }
+        }
+
+        /// <summary>
+        /// Returns true only when the lobby has at least one player and every
+        /// player in it is marked dead.
+        /// </summary>
+        public bool AreAllPlayersDead()
+        {
+            lock (_lock)
+            {
+                if (players.Count == 0) return false;
+                foreach (var p in players)
+                {
+                    if (!p.IsDead) return false;
+                }
+                return true;
+            }
+        }
     }
 }

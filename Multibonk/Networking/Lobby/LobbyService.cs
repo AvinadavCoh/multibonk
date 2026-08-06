@@ -1,6 +1,9 @@
 using MelonLoader;
+using Multibonk.Game;
+using Multibonk.Networking.Comms.Base;
 using Multibonk.Networking.Comms.Base.Packet;
 using Multibonk.Networking.Comms.Multibonk.Networking.Comms;
+using Multibonk.Networking.Comms.Server.Protocols;
 using Multibonk.Networking.Steam;
 
 namespace Multibonk.Networking.Lobby
@@ -11,11 +14,52 @@ namespace Multibonk.Networking.Lobby
         private LobbyContext CurrentLobby { get; }
         private SteamTunnelService SteamTunnelService { get; }
 
-        public LobbyService(NetworkService service, LobbyContext context, SteamTunnelService steamTunnelService)
+        public LobbyService(
+            NetworkService service,
+            LobbyContext context,
+            SteamTunnelService steamTunnelService,
+            ServerProtocol serverProtocol)
         {
             NetworkService = service;
             CurrentLobby = context;
             SteamTunnelService = steamTunnelService;
+
+            // DEFECT 1: subscribe to client disconnect so a dropped player's seat is
+            // removed from the lobby and the all-dead condition is re-evaluated.
+            // This prevents a permanent soft-lock when a client disconnects mid-run
+            // while still alive (IsDead == false), which would otherwise keep
+            // AreAllPlayersDead() from ever returning true.
+            serverProtocol.OnClientDisconnected += OnClientDisconnected;
+        }
+
+        // DEFECT 1 + DEFECT 2: called on the network thread whenever a TCP connection drops.
+        private void OnClientDisconnected(Connection conn)
+        {
+            // The host is the only side that owns the canonical lobby player table.
+            if (!LobbyPatchFlags.IsHosting || !LobbyPatchFlags.InMultiplayer)
+                return;
+
+            try
+            {
+                var player = CurrentLobby.RemovePlayer(conn);
+                if (player == null)
+                {
+                    MelonLogger.Warning("[Host] Disconnected connection had no matching LobbyPlayer - already removed or never registered.");
+                    return;
+                }
+
+                MelonLogger.Msg($"[Host] Player '{player.Name}' (UUID={player.UUID}) disconnected - removed from lobby.");
+
+                // DEFECT 2: re-evaluate the all-dead condition after removing the player.
+                // Scenario: A is dead, B is alive, B disconnects.  Removing B via this
+                // handler leaves only A (dead), so AreAllPlayersDead() now returns true
+                // and TryEndRun broadcasts RUN_OVER and ends the run.
+                RunCoordinator.TryEndRun(CurrentLobby);
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Error($"[Host] Exception handling client disconnect: {ex.Message}");
+            }
         }
 
         public void CreateLobby(string myName)
@@ -40,6 +84,7 @@ namespace Multibonk.Networking.Lobby
             CurrentLobby.TriggerLobbyCreated();
             LobbyPatchFlags.IsHosting = true;
             LobbyPatchFlags.InMultiplayer = true;
+            LobbyPatchFlags.CurrentLobby = CurrentLobby;
         }
 
         public void JoinLobby(string ip, int port, string myName)
@@ -71,6 +116,7 @@ namespace Multibonk.Networking.Lobby
             CurrentLobby.TriggerLobbyJoin();
             LobbyPatchFlags.IsHosting = false;
             LobbyPatchFlags.InMultiplayer = true;
+            LobbyPatchFlags.CurrentLobby = CurrentLobby;
         }
 
         public void AddPlayer(string playerName)
@@ -78,9 +124,14 @@ namespace Multibonk.Networking.Lobby
             CurrentLobby.AddPlayer(playerName);
         }
 
-        public void RemovePlayer(Guid uuid)
+        public void RemovePlayer(ushort uuid)
         {
-            CurrentLobby.RemovePlayer(uuid);
+            if (CurrentLobby.RemovePlayer(uuid) != null && LobbyPatchFlags.IsHosting)
+            {
+                // Same reason as the disconnect path: losing a live player can be the
+                // step that makes everyone remaining dead.
+                RunCoordinator.TryEndRun(CurrentLobby);
+            }
         }
 
         public void CloseLobby()
@@ -103,8 +154,6 @@ namespace Multibonk.Networking.Lobby
                 LobbyPatchFlags.IsHosting = false;
                 LobbyPatchFlags.InMultiplayer = false;
             }
-
         }
     }
-
 }
