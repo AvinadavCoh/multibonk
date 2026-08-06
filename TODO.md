@@ -100,7 +100,7 @@ fork, and the two other mods disagree, so there's no obvious default.
 | Decision | Status | Affects |
 |---|---|---|
 | **Shared vs separate XP & upgrades** | ✅ **DECIDED: shared.** There is genuinely one authoritative spawner (both `SpawnEnemy` overloads block on the client), so shared XP is correct — already implemented. This is a **hard invariant**: both players are always at the exact same XP and level. Any XP-affecting upgrade (e.g. an XP tome) must feed the *shared pool*, not one player's, so levels never desync. Keep that in mind when building the upgrade sync. | Level-up system; XP-granting upgrades must preserve pool equality. |
-| **Combat during upgrade pick** | ✅ **DECIDED: pause everyone.** Any player's level-up pauses the game for **both** and opens the upgrade menu for both; each picks their own upgrade independently. Because XP is a shared invariant (above), an XP-granting pick by one player must credit both equally. | Upgrade screen sync + pause propagation for all players on any level-up. |
+| **Combat during upgrade pick** | ✅ **DECIDED + IMPLEMENTED** (`LevelUpCoordinator.cs`). Any player's level-up pauses for both and opens the menu for both; the game resumes only when all living/connected players have picked. Soft-lock-guarded: client 20s escape hatch (ticked from the guaranteed MelonLoader OnUpdate path, unscaled time), host force-resume, disconnect pruning, cycle-numbered resumes. **Watch in test:** confirm the escape hatch fires (both players stuck paused ⇒ auto-resume after 20s with a `[LevelUp] SOFT-LOCK PREVENTION` log line); tune the 20s if it's too aggressive for a slow picker. | Done. |
 | **Enemy scaling for 2 players** | ⏸ **DEFERRED to after the test session.** Base game is tuned for one player; two may trivialise it, but we'll pick a model (more enemies / tougher enemies / both — MegabonkTogether does both) once we've *felt* the real difficulty. No code until then. | Spawn counts / enemy HP; its own patch once chosen. |
 | **Silver (meta-currency) split** | Open (low urgency). Each machine currently writes full run silver to its own save — both players get 100%. Could be intended (co-op incentive) or should be split. | `ProgressionSaveFile.AddSilver`; may be a no-op decision. |
 | **Friendly fire** | Open (low urgency). Community wants it as an optional toggle, not default. | Only if we add player-damage-to-player at all. |
@@ -119,7 +119,13 @@ in the mod and arguably matters more than teleport. Fixing it means feeding clie
 positions into the host's enemy targeting, not just routing a packet — the targeting code has to
 consider a *list* of players. Non-trivial; likely needs its own investigation pass.
 
-**2. Level-up upgrade screen — HIGH, verified (highest frequency).**
+**2. Level-up upgrade screen — ✅ IMPLEMENTED (`LevelUpCoordinator.cs`), pending in-game test.**
+Pause-everyone / wait-for-all-to-pick is built and soft-lock-guarded (see the decisions table).
+One open sub-item flagged by the build: if any upgrade modifies the static
+`PlayerXp.maxXpMultiplier` (which changes level thresholds) it would only apply locally and drift
+the two players' level-up timing — needs in-game confirmation of whether any upgrade touches it.
+Original analysis retained below for reference:
+
 Fires every time the shared XP pool crosses a threshold, i.e. constantly, and both players cross
 it together. **Decided model (see decisions table):** any level-up pauses the game for *both*
 players and opens the upgrade menu for both; each picks their own upgrade independently. To build:
