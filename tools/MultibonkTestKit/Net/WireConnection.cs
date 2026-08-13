@@ -42,6 +42,17 @@ namespace MultibonkTestKit.Net
             _client = new TcpClient();
         }
 
+        /// <summary>
+        /// Wraps a socket already accepted by a <see cref="System.Net.Sockets.TcpListener"/>
+        /// (used by host mode - the tool is the server side, the real game is the client).
+        /// </summary>
+        public WireConnection(TcpClient acceptedClient)
+        {
+            _client = acceptedClient ?? throw new ArgumentNullException(nameof(acceptedClient));
+            _client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+            _stream = _client.GetStream();
+        }
+
         public async Task ConnectAsync(string host, int port)
         {
             await _client.ConnectAsync(host, port).ConfigureAwait(false);

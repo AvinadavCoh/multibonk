@@ -82,50 +82,106 @@ namespace MultibonkTestKit.Logging
             return sb.ToString();
         }
 
-        public void PrintSummary()
+        /// <summary>
+        /// Prints the end-of-session summary.
+        /// <paramref name="asHost"/> = false (default, `join` mode): this process is the
+        /// fake CLIENT, so it SENT ClientSentPacketId packets and RECEIVED ServerSentPacketId
+        /// packets - this is the original behavior, unchanged.
+        /// <paramref name="asHost"/> = true (`host` mode): this process is the fake HOST, so
+        /// the roles are swapped - it SENT ServerSentPacketId packets and RECEIVED
+        /// ClientSentPacketId packets. The "never received" list then means "these
+        /// client-&gt;host packet types were never seen this session", which is the
+        /// direct evidence that the client-&gt;host direction of the wire actually works.
+        /// </summary>
+        public void PrintSummary(bool asHost = false)
         {
             Write("");
             Write("==================== SESSION SUMMARY ====================");
             Write("");
-            Write("-- Packets received from host (ServerSentPacketId) --");
-            Write($"{"ID",4}  {"NAME",-30}  {"COUNT",8}");
 
-            var neverReceived = new List<string>();
-            foreach (ServerSentPacketId val in Enum.GetValues(typeof(ServerSentPacketId)))
+            if (!asHost)
             {
-                byte id = (byte)val;
-                long count = _recvCounts.TryGetValue(id, out var c) ? c : 0;
-                Write($"{id,4}  {val,-30}  {count,8}");
-                if (count == 0) neverReceived.Add(val.ToString());
-            }
+                Write("-- Packets received from host (ServerSentPacketId) --");
+                Write($"{"ID",4}  {"NAME",-30}  {"COUNT",8}");
 
-            // Any ids the host sent that don't map to a known enum value (protocol drift canary).
-            foreach (var kv in _recvCounts.OrderBy(k => k.Key))
-            {
-                if (!Enum.IsDefined(typeof(ServerSentPacketId), kv.Key))
-                    Write($"{kv.Key,4}  {"<UNKNOWN ID - possible protocol drift>",-30}  {kv.Value,8}");
-            }
+                var neverReceived = new List<string>();
+                foreach (ServerSentPacketId val in Enum.GetValues(typeof(ServerSentPacketId)))
+                {
+                    byte id = (byte)val;
+                    long count = _recvCounts.TryGetValue(id, out var c) ? c : 0;
+                    Write($"{id,4}  {val,-30}  {count,8}");
+                    if (count == 0) neverReceived.Add(val.ToString());
+                }
 
-            Write("");
-            Write("-- Packets sent to host (ClientSentPacketId) --");
-            Write($"{"ID",4}  {"NAME",-30}  {"COUNT",8}");
-            foreach (ClientSentPacketId val in Enum.GetValues(typeof(ClientSentPacketId)))
-            {
-                byte id = (byte)val;
-                long count = _sentCounts.TryGetValue(id, out var c) ? c : 0;
-                Write($"{id,4}  {val,-30}  {count,8}");
-            }
+                foreach (var kv in _recvCounts.OrderBy(k => k.Key))
+                {
+                    if (!Enum.IsDefined(typeof(ServerSentPacketId), kv.Key))
+                        Write($"{kv.Key,4}  {"<UNKNOWN ID - possible protocol drift>",-30}  {kv.Value,8}");
+                }
 
-            Write("");
-            Write("-- NEVER RECEIVED (host never broadcast these this session) --");
-            if (neverReceived.Count == 0)
-            {
-                Write("  (none - every known ServerSentPacketId was observed at least once)");
+                Write("");
+                Write("-- Packets sent to host (ClientSentPacketId) --");
+                Write($"{"ID",4}  {"NAME",-30}  {"COUNT",8}");
+                foreach (ClientSentPacketId val in Enum.GetValues(typeof(ClientSentPacketId)))
+                {
+                    byte id = (byte)val;
+                    long count = _sentCounts.TryGetValue(id, out var c) ? c : 0;
+                    Write($"{id,4}  {val,-30}  {count,8}");
+                }
+
+                Write("");
+                Write("-- NEVER RECEIVED (host never broadcast these this session) --");
+                if (neverReceived.Count == 0)
+                {
+                    Write("  (none - every known ServerSentPacketId was observed at least once)");
+                }
+                else
+                {
+                    foreach (var name in neverReceived)
+                        Write($"  {name}: never received");
+                }
             }
             else
             {
-                foreach (var name in neverReceived)
-                    Write($"  {name}: never received");
+                Write("-- Packets sent to client (ServerSentPacketId) --");
+                Write($"{"ID",4}  {"NAME",-30}  {"COUNT",8}");
+                foreach (ServerSentPacketId val in Enum.GetValues(typeof(ServerSentPacketId)))
+                {
+                    byte id = (byte)val;
+                    long count = _sentCounts.TryGetValue(id, out var c) ? c : 0;
+                    Write($"{id,4}  {val,-30}  {count,8}");
+                }
+
+                Write("");
+                Write("-- Packets received from client (ClientSentPacketId) --");
+                Write($"{"ID",4}  {"NAME",-30}  {"COUNT",8}");
+
+                var neverReceived = new List<string>();
+                foreach (ClientSentPacketId val in Enum.GetValues(typeof(ClientSentPacketId)))
+                {
+                    byte id = (byte)val;
+                    long count = _recvCounts.TryGetValue(id, out var c) ? c : 0;
+                    Write($"{id,4}  {val,-30}  {count,8}");
+                    if (count == 0) neverReceived.Add(val.ToString());
+                }
+
+                foreach (var kv in _recvCounts.OrderBy(k => k.Key))
+                {
+                    if (!Enum.IsDefined(typeof(ClientSentPacketId), kv.Key))
+                        Write($"{kv.Key,4}  {"<UNKNOWN ID - possible protocol drift>",-30}  {kv.Value,8}");
+                }
+
+                Write("");
+                Write("-- NEVER RECEIVED (client never sent these this session - client->host direction unverified for these) --");
+                if (neverReceived.Count == 0)
+                {
+                    Write("  (none - every known ClientSentPacketId was observed at least once)");
+                }
+                else
+                {
+                    foreach (var name in neverReceived)
+                        Write($"  {name}: never received");
+                }
             }
 
             Write("");
