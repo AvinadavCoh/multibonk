@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Multibonk — clean rebuild. MelonLoader IL2CPP mod, net6.0.
+    Game refs are GLOBBED, not hand-listed: a game update that adds/renames
+    interop assemblies is picked up automatically, and typed references mean a
+    renamed *method* breaks the BUILD instead of failing silently at runtime.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Multibonk</AssemblyName>
+    <RootNamespace>Multibonk</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- Where the game + MelonLoader live. Override on the command line if it moves. -->
+    <GameDir Condition="'$(GameDir)' == ''">D:\SteamLibrary\steamapps\common\Megabonk</GameDir>
+    <MelonNet6>$(GameDir)\MelonLoader\net6</MelonNet6>
+    <Il2CppAsm>$(GameDir)\MelonLoader\Il2CppAssemblies</Il2CppAsm>
+  </PropertyGroup>
+
+  <!-- All game types (Assembly-CSharp, UnityEngine.*, Il2Cpp*). Glob = drift-resistant. -->
+  <ItemGroup>
+    <Reference Include="$(Il2CppAsm)\*.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- The handful of loader/interop assemblies we actually compile against.
+       Listed explicitly (not globbed) so we don't drag MelonLoader's bundled
+       framework dlls into the compile and cause version conflicts. -->
+  <ItemGroup>
+    <Reference Include="MelonLoader"><HintPath>$(MelonNet6)\MelonLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(MelonNet6)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(MelonNet6)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Common"><HintPath>$(MelonNet6)\Il2CppInterop.Common.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+</Project>
