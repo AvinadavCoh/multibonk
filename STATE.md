@@ -20,19 +20,23 @@ smeared across 3 dirs, hand-wired DI packet lists).
 - Pure-.NET networking core the test kit can link.
 
 ## Now
-- Working on: scaffolding the new project foundation (entry, DI/host, core interfaces).
-- Status: [UNVERIFIED] — nothing built yet under src/.
+- Working on: networking core + packet framework, `src/Multibonk/Net/` (namespace `Multibonk.Net`).
+- Status: [RAN] `dotnet build src/Multibonk/Multibonk.csproj -c Release` → 0 errors, 0 warnings.
+  Core is pure .NET (no game refs), wire-compatible with the legacy framing/primitives.
+  Not yet exercised end-to-end against the test kit or the game — [UNVERIFIED] at runtime.
 
 ## Next (in order)
-1. Scaffold `src/Multibonk` csproj (copy game-assembly refs from legacy csproj) + minimal
-   MelonMod entry that builds clean.
-2. Networking core: WireMessage (2-byte LE length, payload-only framing), Connection, Server, Client.
-3. Packet registry + module lifecycle interfaces.
-4. First vertical slice: connect → lobby → player position sync. Validate with the test kit.
-5. Port features module-by-module, testing each with the kit as we go.
+1. Packet registry + module lifecycle interfaces. *(PacketRegistry done; per-module
+   lifecycle interface — Register handlers / Reset() — still to design.)*
+2. First vertical slice: connect → lobby → player position sync. Validate with the test kit.
+3. Port features module-by-module, testing each with the kit as we go.
 
 ## Known broken / unverified
-- Entire new codebase — does not exist yet — [UNVERIFIED].
+- `src/Multibonk/Net/` (NetWriter, NetReader, IPacket, Connection, NetServer, NetClient,
+  PacketRegistry, MainThread, Net facade) + `Log.cs` — builds clean — [PROXY]. Never opened
+  a real socket / sent a real packet yet — [UNVERIFIED] at runtime. No feature modules or
+  concrete packets exist yet, so nothing calls Net.Handlers.Register or NetFacade.StartHost/
+  JoinHost outside compile-time.
 - Legacy mod: builds (0 errors) but was never validated in a 2-player game — [PROXY]. Reference only.
 
 ## Environment
