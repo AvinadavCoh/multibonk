@@ -20,16 +20,20 @@ smeared across 3 dirs, hand-wired DI packet lists).
 - Pure-.NET networking core the test kit can link.
 
 ## Now
-- Working on: networking core + packet framework, `src/Multibonk/Net/` (namespace `Multibonk.Net`).
-- Status: [RAN] `dotnet build src/Multibonk/Multibonk.csproj -c Release` → 0 errors, 0 warnings.
-  Core is pure .NET (no game refs), wire-compatible with the legacy framing/primitives.
-  Not yet exercised end-to-end against the test kit or the game — [UNVERIFIED] at runtime.
+- Committed & pushed: (1) building skeleton + csproj, (2) networking core `src/Multibonk/Net/`
+  (pure .NET, wire-compatible with legacy framing/primitives), (3) PacketRegistry + Net facade
+  + MainThread dispatcher, pumped from Mod.OnUpdate.
+- Status: [RAN] `dotnet build src/Multibonk/Multibonk.csproj -c Release` → 0 errors.
+  [UNVERIFIED] at runtime — no socket opened / packet sent against the test kit or game yet.
 
 ## Next (in order)
-1. Packet registry + module lifecycle interfaces. *(PacketRegistry done; per-module
-   lifecycle interface — Register handlers / Reset() — still to design.)*
-2. First vertical slice: connect → lobby → player position sync. Validate with the test kit.
-3. Port features module-by-module, testing each with the kit as we go.
+1. Module lifecycle interface: `IModule { Register(PacketRegistry); Reset(); }` + a composition
+   root in Mod.cs that instantiates the module list and installs them.
+2. First vertical slice (first game-touching code): Session/Lobby module (host starts NetServer,
+   client joins, handshake, player registry) + Player-position sync module (typed [HarmonyPatch]
+   on the game's player movement; spawn remote player bodies). **Decide the remote-player
+   representation here.** Validate with the test kit (join mode) BEFORE moving on.
+3. Port remaining features module-by-module, testing each with the kit as we go.
 
 ## Known broken / unverified
 - `src/Multibonk/Net/` (NetWriter, NetReader, IPacket, Connection, NetServer, NetClient,
