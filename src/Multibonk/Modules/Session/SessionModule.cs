@@ -44,6 +44,14 @@ namespace Multibonk.Modules.Session
         private ushort _localUuid;
         private bool _subscribedToNet;
 
+        /// <summary>
+        /// This mod instance's own player uuid for the current session (0 if no session
+        /// or not yet assigned - e.g. client hasn't received LOBBY_PLAYER_LIST_PACKET
+        /// yet). Read by other modules (e.g. PlayerSyncModule) that need to tag their own
+        /// outgoing state and recognize their own uuid in incoming broadcasts.
+        /// </summary>
+        public ushort LocalUuid => _localUuid;
+
         public void Install(PacketRegistry registry)
         {
             registry.Register(IdJoinLobbyOrPlayerList, (reader, from) =>
@@ -134,6 +142,11 @@ namespace Multibonk.Modules.Session
             string name = reader.ReadString();
 
             ushort uuid = AllocateUuid();
+            // Stamp the connection with its player uuid (Connection.PlayerUuid's documented
+            // purpose - see Net/Connection.cs) so other modules (e.g. PlayerSyncModule) can
+            // map an incoming Connection straight to a player uuid without depending on
+            // this module's registry directly.
+            from.PlayerUuid = uuid;
             var player = new LobbyPlayer { Uuid = uuid, Name = name, Character = string.Empty, Connection = from, IsLocal = false };
             _registry.Add(player);
             Log.Info($"[Session] JOIN_LOBBY_PACKET from connId={from.Id}: assigned uuid={uuid} name=\"{name}\" modVersion={version}.");

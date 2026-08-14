@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Multibonk.Modules.Players;
 using Multibonk.Modules.Session;
 using NetFacade = Multibonk.Net.Net;
 
@@ -16,7 +17,10 @@ namespace Multibonk.Modules
         /// <summary>Direct handle to the session module for the dev-trigger keybinds in Mod.cs.</summary>
         public static SessionModule Session { get; } = new SessionModule();
 
-        private static readonly List<IModule> Modules = new List<IModule> { Session };
+        /// <summary>Direct handle to the player-position-sync module (currently no external callers need it; kept for parity/future dev triggers).</summary>
+        public static PlayerSyncModule PlayerSync { get; } = new PlayerSyncModule();
+
+        private static readonly List<IModule> Modules = new List<IModule> { Session, PlayerSync };
 
         private static bool _installed;
 
@@ -51,6 +55,20 @@ namespace Multibonk.Modules
             };
 
             Log.Info($"ModuleHost: installed {Modules.Count} module(s).");
+        }
+
+        /// <summary>
+        /// Calls <see cref="IModule.Tick"/> on every installed module. Call once per
+        /// frame from Mod.OnUpdate, AFTER Net.PumpReceive/MainThread.Drain, so ticks see
+        /// this frame's already-applied incoming packets and run on the main thread.
+        /// </summary>
+        public static void TickAll()
+        {
+            foreach (var module in Modules)
+            {
+                try { module.Tick(); }
+                catch (Exception e) { Log.Error($"ModuleHost: {module.GetType().Name}.Tick threw: {e}"); }
+            }
         }
     }
 }

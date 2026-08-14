@@ -59,6 +59,7 @@ namespace Multibonk
             // main thread, in this order, every frame.
             NetFacade.PumpReceive();
             Multibonk.Net.MainThread.Drain();
+            ModuleHost.TickAll();
 
             CheckDevTriggers();
         }

@@ -36,5 +36,16 @@ namespace Multibonk.Modules
         /// all session-scoped state here (player registries, in-flight counters, ...).
         /// </summary>
         void OnSessionEnd();
+
+        /// <summary>
+        /// Called once per frame from Mod.OnUpdate (via ModuleHost.TickAll), after
+        /// Net.PumpReceive/MainThread.Drain have run - so this is always on the main
+        /// thread, safe to touch Unity/IL2CPP state, and sees state already updated by
+        /// this frame's incoming packets. Default no-op; a module only overrides this if
+        /// it has genuine per-frame work (e.g. reading a live game transform and sending
+        /// throttled network updates), unlike Install/OnSessionStart/OnSessionEnd which
+        /// every module implements.
+        /// </summary>
+        void Tick() { }
     }
 }
