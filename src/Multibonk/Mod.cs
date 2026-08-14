@@ -1,4 +1,7 @@
+using System;
 using MelonLoader;
+using Multibonk.Modules;
+using UnityEngine;
 // "Net" collides with the Multibonk.Net *namespace* itself when used unqualified
 // from inside the Multibonk namespace, so alias the facade class explicitly.
 using NetFacade = Multibonk.Net.Net;
@@ -29,13 +32,24 @@ namespace Multibonk
     /// </summary>
     public sealed class Mod : MelonMod
     {
+        // ---------------- dev triggers (scaffolding until a real UI exists) ----------------
+        // No lobby UI exists yet, so these keybinds drive the session module directly for
+        // manual/test-kit testing. Delete once a real host/join/start-game UI lands.
+        private const int DevHostPort = 25565;
+        private const string DevJoinHost = "127.0.0.1";
+        private const int DevJoinPort = 25565;
+        private const int DevStartGameSeed = 12345;
+
         public override void OnInitializeMelon()
         {
             LoggerInstance.Msg("Multibonk (rebuild) initializing…");
-            // Composition root is wired here as the rebuild progresses:
-            //   - networking core (done: Multibonk.Net)
-            //   - packet registry (done: Net.Handlers, populated by feature modules)
-            //   - feature modules (players, enemies, pickups, …)
+
+            // Composition root: networking core (Multibonk.Net) is already up; feature
+            // modules (players, enemies, pickups, ... - session/lobby first) install
+            // their packet handlers here.
+            ModuleHost.Install();
+
+            PrintDevTriggerLegend();
             LoggerInstance.Msg("Multibonk initialized.");
         }
 
@@ -45,11 +59,58 @@ namespace Multibonk
             // main thread, in this order, every frame.
             NetFacade.PumpReceive();
             Multibonk.Net.MainThread.Drain();
+
+            CheckDevTriggers();
         }
 
         public override void OnApplicationQuit()
         {
             NetFacade.StopAll();
+        }
+
+        // ---------------- dev triggers ----------------
+
+        private void CheckDevTriggers()
+        {
+            try
+            {
+                if (Input.GetKeyDown(KeyCode.F6))
+                {
+                    Log.Info($"[DevTrigger] F6 - hosting a session on port {DevHostPort}...");
+                    NetFacade.StartHost(DevHostPort);
+                    Log.Info($"[DevTrigger] Now hosting on port {DevHostPort}. Run the test kit with: dotnet run -- join --host {DevJoinHost} --port {DevHostPort}");
+                }
+                else if (Input.GetKeyDown(KeyCode.F7))
+                {
+                    Log.Info($"[DevTrigger] F7 - joining {DevJoinHost}:{DevJoinPort}...");
+                    try
+                    {
+                        NetFacade.JoinHost(DevJoinHost, DevJoinPort);
+                        Log.Info($"[DevTrigger] Connected to {DevJoinHost}:{DevJoinPort}.");
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error($"[DevTrigger] Join failed: {e.Message}");
+                    }
+                }
+                else if (Input.GetKeyDown(KeyCode.F8))
+                {
+                    Log.Info($"[DevTrigger] F8 - sending START_GAME (seed={DevStartGameSeed}) to all clients...");
+                    ModuleHost.Session.SendStartGameToAll(DevStartGameSeed);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error($"[DevTrigger] threw: {e}");
+            }
+        }
+
+        private void PrintDevTriggerLegend()
+        {
+            Log.Info("[DevTrigger] Keybind legend (scaffolding until a real UI exists):");
+            Log.Info($"[DevTrigger]   F6 = host a session on port {DevHostPort}");
+            Log.Info($"[DevTrigger]   F7 = join {DevJoinHost}:{DevJoinPort}");
+            Log.Info($"[DevTrigger]   F8 = (host only) send START_GAME to all clients, seed={DevStartGameSeed}");
         }
     }
 }

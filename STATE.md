@@ -23,24 +23,38 @@ smeared across 3 dirs, hand-wired DI packet lists).
 - Committed & pushed: (1) building skeleton + csproj, (2) networking core `src/Multibonk/Net/`
   (pure .NET, wire-compatible with legacy framing/primitives), (3) PacketRegistry + Net facade
   + MainThread dispatcher, pumped from Mod.OnUpdate.
-- Status: [RAN] `dotnet build src/Multibonk/Multibonk.csproj -c Release` → 0 errors.
-  [UNVERIFIED] at runtime — no socket opened / packet sent against the test kit or game yet.
+- Just finished: module system (`src/Multibonk/Modules/IModule.cs`, `ModuleHost.cs` composition
+  root) + first feature module, Session/Lobby (`src/Multibonk/Modules/Session/`): packet ids
+  + IPacket bodies matching legacy byte-for-byte (JoinLobby, LobbyPlayerList, SelectCharacter,
+  PlayerSelectedCharacter, StartGame, GameLoaded, SpawnPlayer), a thread-safe `LobbyPlayerRegistry`,
+  and host+client handshake logic in `SessionModule`. `Net.cs` gained `OnSessionStarted`/
+  `OnSessionEnded` events (guarded against double-firing) that `ModuleHost` subscribes to.
+  Dev-trigger keybinds in `Mod.cs`: F6 host :25565, F7 join 127.0.0.1:25565, F8 host-only
+  broadcast START_GAME(seed=12345).
+- Status: [RAN] `dotnet build src/Multibonk/Multibonk.csproj -c Release` → 0 errors, 0 warnings.
+  [UNVERIFIED] at runtime — never launched the game with the mod loaded, never run the test kit
+  against it. Wire-format compatibility was checked [PROXY] by reading both sides' source
+  byte-for-byte (see the module's doc comments), not by capturing an actual packet.
 
 ## Next (in order)
-1. Module lifecycle interface: `IModule { Register(PacketRegistry); Reset(); }` + a composition
-   root in Mod.cs that instantiates the module list and installs them.
-2. First vertical slice (first game-touching code): Session/Lobby module (host starts NetServer,
-   client joins, handshake, player registry) + Player-position sync module (typed [HarmonyPatch]
-   on the game's player movement; spawn remote player bodies). **Decide the remote-player
-   representation here.** Validate with the test kit (join mode) BEFORE moving on.
+1. **Runtime-validate the session slice** before building anything else: launch the game with
+   the mod, F6 to host, `dotnet run -- join` from `tools/MultibonkTestKit` against it, confirm
+   the full handshake log sequence on both sides; then swap roles (F7 join a `host`-mode test
+   kit instance) and confirm that direction too.
+2. Player-position sync module (typed [HarmonyPatch] on the game's player movement; spawn
+   remote player bodies). **Decide the remote-player representation here.** No player module
+   exists yet, so SessionModule's GAME_LOADED/SPAWN_PLAYER handlers use a placeholder
+   characterByte=0 and don't actually spawn anything - revisit once this module exists.
 3. Port remaining features module-by-module, testing each with the kit as we go.
 
 ## Known broken / unverified
 - `src/Multibonk/Net/` (NetWriter, NetReader, IPacket, Connection, NetServer, NetClient,
   PacketRegistry, MainThread, Net facade) + `Log.cs` — builds clean — [PROXY]. Never opened
-  a real socket / sent a real packet yet — [UNVERIFIED] at runtime. No feature modules or
-  concrete packets exist yet, so nothing calls Net.Handlers.Register or NetFacade.StartHost/
-  JoinHost outside compile-time.
+  a real socket / sent a real packet yet — [UNVERIFIED] at runtime.
+- `src/Multibonk/Modules/` (IModule, ModuleHost, Session/*) — builds clean — [PROXY]. Wire
+  layouts were hand-matched against legacy + the test kit by reading source, not by capturing
+  bytes — [UNVERIFIED] at runtime. SessionModule's SPAWN_PLAYER characterByte is always 0
+  (placeholder - no ECharacter/player-module lookup exists yet).
 - Legacy mod: builds (0 errors) but was never validated in a 2-player game — [PROXY]. Reference only.
 
 ## Environment

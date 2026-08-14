@@ -46,6 +46,38 @@ namespace Multibonk.Net
         /// <summary>Raised on the main thread when a client disconnects (host), or the host connection is lost (join).</summary>
         public static event Action<Connection> OnClientDisconnected;
 
+        /// <summary>
+        /// Raised once, synchronously, whenever <see cref="StartHost"/> or
+        /// <see cref="JoinHost"/> successfully begins a new session - true for host,
+        /// false for client. Always called from whatever thread invoked StartHost/
+        /// JoinHost (both are main-thread-only APIs by convention - see their own docs).
+        /// Feature modules (see Multibonk.Modules) subscribe here via ModuleHost to reset
+        /// their session-scoped state.
+        /// </summary>
+        public static event Action<bool> OnSessionStarted;
+
+        /// <summary>
+        /// Raised exactly once when a session that was active actually ends: an
+        /// explicit <see cref="StopAll"/> (including the implicit one at the start of a
+        /// fresh StartHost/JoinHost), or - client role only - the host connection
+        /// dropping on its own. Not raised when a single client disconnects from a host
+        /// running with other clients still connected; the host's session only ends
+        /// when the host itself stops. Guarded by an internal flag so an unexpected
+        /// disconnect followed by an explicit StopAll (or vice versa) fires this only
+        /// once. May be raised from a background thread when triggered by an
+        /// unexpected client-side disconnect (marshaled the same way as
+        /// OnClientDisconnected); StartHost/StopAll/JoinHost's own invocations run on
+        /// the calling thread.
+        /// </summary>
+        public static event Action OnSessionEnded;
+
+        // True from a successful StartHost/JoinHost until OnSessionEnded fires. Not the
+        // same signal as InSession (which flips false the instant the socket closes,
+        // before either the explicit StopAll path or the disconnect-callback path below
+        // has had a chance to run) - this flag is what lets both of those paths share
+        // one "did I already fire OnSessionEnded" check instead of double-firing it.
+        private static bool _sessionActive;
+
         /// <summary>Starts listening as the host. Stops any existing session first.</summary>
         public static void StartHost(int port)
         {
@@ -61,6 +93,8 @@ namespace Multibonk.Net
                 MainThread.Enqueue(() => OnClientDisconnected?.Invoke(conn));
 
             _server.Start(port);
+            _sessionActive = true;
+            OnSessionStarted?.Invoke(true);
         }
 
         /// <summary>
@@ -79,9 +113,19 @@ namespace Multibonk.Net
                 MainThread.Enqueue(() => OnClientConnected?.Invoke(conn));
             };
             _client.OnDisconnected += conn =>
-                MainThread.Enqueue(() => OnClientDisconnected?.Invoke(conn));
+                MainThread.Enqueue(() =>
+                {
+                    OnClientDisconnected?.Invoke(conn);
+                    // Client role only: losing the host connection ends the whole
+                    // session, even without an explicit StopAll() call. EndSession()
+                    // no-ops if StopAll() already fired this (e.g. the maintainer
+                    // pressed F6/F7 in the same frame the socket happened to drop).
+                    EndSession();
+                });
 
             _client.ConnectAsync(host, port).GetAwaiter().GetResult();
+            _sessionActive = true;
+            OnSessionStarted?.Invoke(false);
         }
 
         /// <summary>Tears down whatever session is active (host or join). Safe to call when idle.</summary>
@@ -94,6 +138,15 @@ namespace Multibonk.Net
             _client = null;
 
             while (Incoming.TryDequeue(out _)) { }
+
+            EndSession();
+        }
+
+        private static void EndSession()
+        {
+            if (!_sessionActive) return;
+            _sessionActive = false;
+            OnSessionEnded?.Invoke();
         }
 
         private static void HandleMessage(Connection from, byte[] payload) =>
