@@ -38,4 +38,17 @@
     <Reference Include="Il2CppInterop.Common"><HintPath>$(MelonNet6)\Il2CppInterop.Common.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 
+  <!--
+    Deploy the built mod straight into the game's Mods folder so testing is one command.
+    This mod's assembly is named "Multibonk" (same as the legacy mod), so building the
+    rebuild OVERWRITES any legacy Multibonk.dll in Mods — only one loads, which is what we
+    want while validating the rebuild. Guarded on the Mods folder existing so a build on a
+    machine without the game still succeeds. The rebuild has no extra dependencies to copy
+    (no Microsoft.Extensions.DependencyInjection) — just the one dll.
+  -->
+  <Target Name="DeployToMods" AfterTargets="Build" Condition="Exists('$(GameDir)\Mods')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\Mods" />
+    <Message Importance="high" Text="[Multibonk] Deployed $(TargetFileName) to $(GameDir)\Mods" />
+  </Target>
+
 </Project>
